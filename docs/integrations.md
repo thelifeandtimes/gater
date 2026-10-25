@@ -34,7 +34,7 @@ ERC-721 enumeration is optional; token IDs need not be sequential. A general ada
 
 The inspected `%eth-watcher` supports separate watch configurations and exposes `%history`, `%logs`, and `%disavow` shapes. However, its current thread uses range-based fetching, has the near-head reorg loop commented out, and uses a block-distance margin. Its interface alone does **not** establish Base-aware finality or complete reorg handling.
 
-Therefore, prefer a small Gater-specific bounded RPC polling module through Iris with explicit checkpoints and finality. Reuse existing HTTP/ABI libraries. Only reuse `%eth-watcher` itself after demonstrating the required behavior on the pinned version; never replace the host's existing Azimuth watch configuration.
+The first pass uses `scripts/scan.py` beside the ship and host-only snapshot import. The target architecture remains a small Gater-specific bounded RPC polling module through Iris with explicit checkpoints and finality. Reuse existing HTTP/ABI libraries. Only reuse `%eth-watcher` itself after demonstrating the required behavior on the pinned version; never replace the host's existing Azimuth watch configuration.
 
 Existing RPC configuration may be reusable. `%eth-watcher` exposes `%x /dogs/configs`, which can include credential-bearing URLs. A host-only setup action may resolve a selected configuration internally and display only a redacted provider label. An Ethereum endpoint cannot be used as a Base endpoint just by changing a chain number. Verify `eth_chainId` and required methods for each endpoint. No private configuration was read during planning.
 
@@ -62,8 +62,10 @@ Keep all Tlon translation in one adapter. Do not let a foreign EAuth user send a
 
 ## Eyre and EAuth
 
+Source inspection of `sys/vane/eyre.hoon` shows `authenticated` is true only for `%ours`. `%real` EAuth identity becomes `src.bowl`; anonymous `%fake` identities are comet-sized. Gater allows Azimuth-sized remote identities and requires the authenticated flag for host identity. Do not require that flag from every EAuth user. The alpha tests this distinction, but a two-ship handshake remains an integration gate.
+
 EAuth supplies the remote ship identity to the agent. A host-served member UI can initiate login using `/~/login` and return to `/gater`. Serve it independently of the ordinary `%docket` front end. Test remote endpoint discovery, reverse-proxy behavior, expiry, logout, and unauthorized requests on the deployed kernel. [Official EAuth documentation](https://docs.urbit.org/urbit-os/kernel/eyre/eauth).
 
 ## Nockmilio
 
-[Scatter's collection listing](https://www.scatter.art/) identifies Nockmilio as an ERC-721 collection on Base. Its complete canonical contract address, deployment block, and discovery behavior remain unverified. The example configuration deliberately leaves them unset. A collection name, marketplace slug, or unrelated NOCK token address is not an adequate identifier.
+[Scatter's collection page](https://www.scatter.art/c/nockmilio) identifies Nockmilio as an ERC-721 collection on Base. The collection page’s ERC721 link points to Base contract `0x7465E492a183F16C0805e57262898c7bec11808A` ([explorer](https://basescan.org/address/0x7465E492a183F16C0805e57262898c7bec11808A#code)). Deployment block and discovery behavior still need verification. The example now includes the address; it never treats the slug as an asset identifier.

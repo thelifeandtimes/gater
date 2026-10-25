@@ -1,29 +1,27 @@
 # Gater
 
-`%gater` is a planned Urbit desk and Gall agent for managing NFT-based invitations and roles in Tlon Messenger groups. The group host runs the agent and serves a claim page through Eyre.
+`%gater` is an Urbit Gall agent and Eyre claim page for NFT-based Tlon group access. It runs on the group host. Collections are configuration, not hard-coded application logic.
 
-**Status:** design and implementation plan. This repository does not yet contain a runnable desk. No live invitations, role changes, or chain transactions have been performed.
+**Status: runnable first-pass preview.** Claims and configuration persist on the ship; the policy engine produces proposed actions. **It does not yet send DMs/invitations or change Tlon roles/membership.** The production delivery adapter, source-completeness checks, and remote EAuth integration test are the next milestone.
 
-The intended flow is:
+## Behavior
 
-1. Resolve Urbit IDs to their effective Azimuth owner, including Azimuth L2.
-2. Track selected NFT collections on Ethereum mainnet or Base.
-3. Invite every eligible ID whose owner address also holds a selected NFT.
-4. Let a member sign into the host's claim page with EAuth and associate one held NFT with their ship.
-5. Grant the configured role to the associated ship and reconcile it when ownership or the association changes.
+1. Match an Urbit ID's effective Azimuth owner to NFT ownership on Ethereum (`1`) or Base (`8453`).
+2. On recognition, propose a DM containing the claim-page link by default. A collection can instead invite all eligible ships or do nothing.
+3. A ship signs into the host's Eyre page using EAuth and claims a specific NFT. Existing membership is not required.
+4. One NFT supports one ship; one ship may claim one NFT per collection on this host. An eligible sibling can replace an occupied claim atomically.
+5. The claim drives the managed role and admission. Losing the last entitlement removes the role **and membership by default**; retaining membership is configurable. Other valid claims supporting the same role/group are considered before removal.
 
-For example, an address owning three planets and one Nockmilio can receive three invitations, but that NFT can support only one active ship association. Moving the association removes the old ship's managed role before granting it to the new ship.
+An address with three planets and one NFT can therefore produce three introductory DMs, but only one active association. No wallet transaction or NFT transfer is involved.
 
-The proposed uniqueness scope is **one NFT per ship per collection, across all groups managed by this host**, and one ship per NFT. Independent hosts cannot enforce a shared global mapping without an additional shared authority. These scope choices remain open for confirmation.
+## What is here
 
-Start with the [implementation plan](docs/implementation-plan.md). The supporting documents cover:
+- `desk/`: persistent Gall state, policy reducers, host configuration, native `%azimuth` snapshot polling, EAuth-aware HTTP authorization, and the claim UI.
+- `scripts/scan.py`: read-only finalized ERC-721 RPC reader with bounded log requests and `ownerOf` checks. This first reader runs beside the ship; native Iris ingestion is planned.
+- `tests/`: 53 passing Hoon/Python scenarios, plus HTTP and browser checks. See the [verification record](docs/verification.md).
+- [Development guide](docs/development.md): installation, demo fixtures, RPC input, and tests.
+- [Implementation plan](docs/implementation-plan.md), [architecture](docs/architecture.md), [decisions](docs/decisions.md), [integration evidence](docs/integrations.md), and [acceptance checks](docs/acceptance-tests.md).
 
-- [Architecture and behavior](docs/architecture.md)
-- [Verified interfaces and integration risks](docs/integrations.md)
-- [Decisions and outstanding inputs](docs/decisions.md)
-- [Acceptance scenarios](docs/acceptance-tests.md)
-- [Illustrative collection configuration](config/collection.example.json)
+[Nockmilio's Scatter page](https://www.scatter.art/c/nockmilio) links to the Base contract [`0x7465E492a183F16C0805e57262898c7bec11808A`](https://basescan.org/address/0x7465E492a183F16C0805e57262898c7bec11808A#code). Its deployment block and mint/discovery behavior still need verification before a complete production index. [Configuration examples](config/README.md) include this address.
 
-The recommended implementation keeps state, authentication, and policy on the host ship. It uses the ship's `%azimuth` data where sufficiently complete and current, and makes NFT JSON-RPC reads through Iris. Reusing `%eth-watcher` is an option to validate, not an assumption about Base support or finality.
-
-An Infura key is not needed to finish the design. Implementation will need a Base RPC endpoint and access to an appropriate Ethereum ownership source. Credentials belong in private host configuration, not this repository or the browser.
+Use a disposable test pier first. RPC credentials stay in environment variables; they are never included in the browser, claim URLs, or committed configuration. No Infura key is needed to run the fixture demo.

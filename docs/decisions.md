@@ -1,39 +1,32 @@
-# Decisions and open inputs
+# Decisions
 
-The required behavior is broad invitations based on common ownership, followed by an exclusive NFT-to-ship association that drives roles. The following choices make that behavior precise.
+Updated 2026-10-25 from the owner's follow-up.
 
-| Decision | Proposed starting point | Status |
-| --- | --- | --- |
-| Execution | `%gater` on the group-host ship; native RPC reads through Iris | Proposed |
-| Identity | Effective Azimuth owner, including Azimuth L2 | Required by design |
-| Chains | Ethereum mainnet and Base mainnet | Requested |
-| Token standard | ERC-721 first; other standards need explicit adapters | Proposed |
-| Initial group access | All eligible IDs can be invited; invitation grants no NFT role | Requested |
-| Initial claim authority | EAuth ship control plus matching on-chain ownership | Proposed interpretation |
-| Reassignment | Current claim holder can release/nominate; wallet signature can recover an occupied claim | Awaiting user preference |
-| Uniqueness | One ship per NFT; one NFT per ship per collection, across the host's groups | Awaiting scope confirmation |
-| Cross-host uniqueness | Not enforced; would need a shared registry/authority | Architectural limit |
-| Loss of qualification | Configurable per group; initially revoke role and keep membership | Awaiting user preference |
-| NFT finality | Finalized checkpoints initially; configurable after measuring latency | Proposed |
-| Azimuth finality | Establish provenance in Phase 0; do not assume current scry is finalized | Integration gate |
-| RPC outage | Freeze new entitlements, keep existing access, show stale state | Proposed |
-| Role ownership | Dedicated Gater-managed roles; protected admin/host exceptions | Proposed |
-| Initial rollout | Dry run, test cohort, then broader invitations | Proposed |
+| Topic | Decision |
+| --- | --- |
+| Name | Desk and Gall agent `%gater`; `%hater` in the follow-up is treated as a typo |
+| Default recognition action | DM each eligible associated ship with configurable text and a claim link |
+| Other recognition actions | Invite all eligible ships to the configured group, or do nothing |
+| Claim timing | Claim before joining; the claim should trigger admission and the managed role |
+| Replacement | Any currently eligible sibling ship may replace an occupied claim |
+| Eligibility loss | Remove managed role and membership by default; configurable membership retention |
+| Scope | One NFT per ship per collection, one ship per NFT, on this host |
+| Identity | Effective Azimuth owner, including Azimuth L2; not management/spawn proxy |
+| Collection identity | Chain ID plus contract address; short config ID is an alias |
+| Initial standard | ERC-721; Ethereum mainnet and Base mainnet |
+| Authorization | EAuth ship control and common ownership; no wallet signature for sibling replacement |
+| Source outage | Freeze grants and destructive reconciliation; preserve last known state, indicate staleness |
+| Role ownership | Dedicated non-admin roles; never treat all roles on a member as Gater-owned |
+| First-pass execution | Persistent on-ship claims and action preview; live delivery unavailable |
 
-## Inputs requested from the owner
+Recognition does not itself reserve an NFT. `none` suppresses outreach, not claims or entitlement reconciliation. A replacement revokes the old association's access unless another valid entitlement supports it. Multiple collections managing one group must agree on its membership-loss setting.
 
-1. The official Nockmilio collection link or canonical Base contract address. Deployment block and verified ABI/source can be resolved from the confirmed address.
-2. Whether ownership loss removes only the managed role or also membership, or should be selectable per group.
-3. Who may replace an existing association: current linked ship/wallet owner, any eligible sibling ship, or wallet signatures for every change.
+The current implementation has one group/role destination per collection configuration. One collection feeding multiple groups is a planned schema extension. Independent hosts do not share a global mapping. Sibling replacement is last-valid-revision-wins: siblings can contest an association, so a later cooldown or host lock may be useful. There is no wallet challenge in this first pass.
 
-Before implementation also identify the host ship, group flag, installed Tlon version, desired role/channel permissions, and whether the proposed per-collection uniqueness scope matches the intent. These do not prevent completing the architecture.
+## Inputs needed for a live pilot
 
-## Scope boundaries
+No further product decisions are needed to continue development. Before deployment, supply the host ship/public HTTPS URL, actual hosted group name and dedicated role ID, installed Tlon revision, and an RPC endpoint for each NFT chain. Resolve Nockmilio's deployment block and event behavior. Put credentials into private configuration, not chat or Git.
 
-The MVP does not equate a smart-contract address on Base with the same address on Ethereum without verifying the intended cross-chain authority policy. Automatic address matching is simplest for ordinary key-controlled accounts. Contract wallets, custody, staking, vaults, and delegated NFT holdings need explicit adapters or enrollment rules; do not silently count them as direct ownership.
+## Boundaries
 
-ERC-1155 balances represent quantities, so a one-token/one-ship rule needs a defined allocation unit before support. Collection migrations, wrapped assets, and a possible move to Nockchain need explicit new policies; a matching name does not migrate existing entitlements.
-
-Role removal prevents future authorized access where Tlon enforces it. It cannot retract messages or media a member already downloaded. Claim records remain host-managed records, not an on-chain ownership change or a decentralized guarantee.
-
-No license or remote Git hosting destination has been chosen. The local repository is sufficient for this planning stage.
+Address equality is a useful first rule for ordinary key-controlled accounts. The same smart-contract address on two chains need not imply the same controlling person. Vaults, staking, custody, delegation, wrapped NFTs, and ERC-1155 quantities need explicit adapters/policies. Removal cannot retract messages already downloaded. License and remote Git hosting for Gater's original code remain owner decisions; vendored code notices are included.

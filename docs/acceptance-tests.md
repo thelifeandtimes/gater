@@ -1,45 +1,25 @@
-# Acceptance scenarios
+# Acceptance checks
 
-These are required future tests, not tests already implemented or run. Use synthetic wallets, test ships, and sanitized RPC fixtures first; reserve live tests for the bounded pilot.
+Automated suites live in `tests/`; see [development](development.md) for commands.
 
-| Scenario | Expected result |
-| --- | --- |
-| One address, three planets, one NFT | Three eligible invitations; at most one active association and one NFT entitlement |
-| One address, two NFTs, two planets | Each planet can claim a different token |
-| One planet claims a second token in the same collection | Explicit atomic replacement or conflict; never two simultaneous associations |
-| Same token ID on two chains/contracts | Distinct assets; no collisions |
-| Same collection used by two local groups | The association is shared; both groups derive roles from the same ship |
-| Different collections grant the same role | Losing one qualifying claim does not remove a still-supported role |
-| L1 and Azimuth L2 points | Both resolve their effective owners; L1 escrow/sentinel ownership does not qualify an L2 point |
-| Proxy or approved NFT operator matches | No eligibility unless it is the actual owner |
-| Moon/comet login | Clear unsupported identity response; no inherited parent ownership |
-| Contract owner at the same address on both chains | Requires the explicit contract-wallet policy; no silent cross-chain authority assumption |
-| Two concurrent claim requests | One succeeds; the other gets a conflict with current revision |
-| Retried claim after lost HTTP response | Returns the existing outcome; no duplicate claim or side effect |
-| Competing sibling ship requests remap | Follows the selected authority policy; no silent overwrite |
-| Role revoke fails during remap | Destination role remains pending; old-role failure is visible |
-| Crash after revoke, before destination grant | Durable transition resumes and converges without duplicate entitlement |
-| Delayed response for an older policy/claim | Rejected by revision/source generation checks |
-| NFT transfer or burn | Invalidate affected claim, revoke unsupported managed role, apply membership policy |
-| Azimuth owner changes | Old claim and application authorization invalidated; new owner must claim afresh |
-| Token or point moves away and back | Ownership generation prevents automatic revival |
-| Both point and NFT move together | Prior claim is invalidated despite restored address equality |
-| Point breach/continuity change | Invalidate sensitive authorization and require the chosen recovery flow |
-| Reorganization invalidates observed ownership | Rebuild canonical state; compensate applied effects; no grants from discarded observations |
-| RPC outage or incomplete bootstrap | Show unknown/stale; freeze new grants; do not treat as zero balance |
-| Empty log interval | Cursor still advances atomically with validated scan progress |
-| Duplicate/out-of-order logs | Deterministic index after sorting and deduplication |
-| Constructor mint/non-enumerable collection | Explicit discovery strategy; never silently omit holders |
-| Anonymous request with claimed ship in body | Denied; body never establishes actor identity |
-| Foreign member requests host admin operation | Denied on HTTP and direct Gall paths |
-| CSRF, replayed signature, or wrong target/domain | Denied without modifying claims or roles |
-| EAuth session predates ownership transfer | Cannot authorize a new sensitive change without the required fresh proof |
-| User leaves, declines, or administrator bans | No repeated automated invitations; preserve suppression |
-| Pending invitation loses eligibility | Revoke Gater-owned admission; test that stale tokens cannot restore that admission |
-| Membership gating on a public group or bypass token | Setup rejects strict gating until admission policy is corrected |
-| Manual unrelated role or invitation exists | Preserve it |
-| Managed member is a protected admin/channel host | Surface exception; do not report successful removal |
-| Group/role deleted or Tlon version incompatible | Pause affected integration and report the cause |
-| Agent restart, desk upgrade, state restore | Retain uniqueness indexes, audit, cursors, suppression, and pending effects |
+## Executed reducer/input cases
 
-At the integration boundary, verify actual group membership, roles, and channel access. A successful poke or rendered success message is insufficient. Measure discovery lag, revocation lag, bootstrap duration, RPC request volume, and event-log/state growth during the pilot.
+DM-default, invite-all and no-outreach modes; claim before membership; eligible sibling takeover; concurrent revision conflict; unrelated wallet rejection; one token per ship per collection; release authority; stale inputs; NFT and ship-owner changes; remove-role-and-membership default; optional membership retention; another collection sustaining the same role; broad-invite eligibility loss; retaining an eligible broad-invite member before claiming; and preserving ships across distinct Azimuth owner addresses.
+
+HTTP/input cases cover host versus remote EAuth-shaped identities, rejecting anonymous comet identities, same-origin guards, host-only configuration, the live-delivery lock, arbitrary collection defaults, malformed/duplicate ownership, empty snapshots, stale RPC snapshots, checkpoint identity/regression, and uint256 imports.
+
+## RPC reader cases
+
+Finalized pagination; chain mismatch; unavailable/stale finality; missing contract; unsupported standard; changed block hash; ownerOf mismatch; transfer/burn replay; token ID zero and uint256 maximum; duplicate, removed, out-of-range and foreign-contract logs; missing mint history; and ERC-20-shaped events.
+
+## Production acceptance still outstanding
+
+- Real two-ship EAuth round trip and proxy/session behavior.
+- Azimuth completeness, source-health proof and event generations.
+- Live RPC integration against the configured collection/provider, verified mint coverage and large-history limits.
+- Real Tlon delivery for DMs, invite/accept, claimed admission, roles, pending cancellation and kicking.
+- Removal-before-grant under failed acknowledgements, restarts and delayed messages.
+- Protected host/channel hosts, manual roles, moderation bans, outbox deduplication and replay.
+- Cold-pier save/load and state migrations with queued network operations.
+
+A passing reducer test does not prove a Tlon action was delivered. This build intentionally sends no Tlon actions.

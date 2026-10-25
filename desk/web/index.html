@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gater · Claim membership</title>
+  <link rel="stylesheet" href="/gater/style.css">
+  <script src="/gater/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><a href="/gater" class="brand">%gater</a><span id="identity">Membership, on your ship.</span></header>
+    <section class="intro"><p class="eyebrow">A place for your people</p><h1>Claim your<br>group membership.</h1><p>Link an NFT you own to your Urbit ID. Your group host takes care of access.</p></section>
+    <p class="muted">Preview: claims are saved, but group access is not changed yet.</p>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section id="login" hidden>
+      <h2>Sign in with your ship</h2>
+      <form action="/~/login" method="post">
+        <label for="ship">Urbit ID</label><input id="ship" name="name" placeholder="~sampel-palnet" required autocomplete="username">
+        <input type="hidden" name="redirect" value="/gater"><input type="hidden" name="eauth" value="">
+        <button type="submit">Continue with EAuth</button>
+      </form>
+      <p class="muted">You'll approve the sign-in on your own ship.</p>
+      <a href="/~/login?redirect=/gater">Group host? Sign in locally.</a>
+    </section>
+    <section id="membership" hidden><div class="section-heading"><h2>Your collections</h2><button id="refresh" class="quiet">Refresh</button></div><div id="collections"></div></section>
+    <section id="admin" hidden>
+      <details><summary>Host settings</summary>
+        <p class="muted">First-pass preview: decisions are queued for inspection. No DMs, invitations, or access changes are sent.</p>
+        <form id="settings"><label>Public host URL<input name="baseUrl" type="url" placeholder="https://your-ship.example" required></label><label>Azimuth source<select name="azimuthAuto"><option value="true">Read this ship’s %azimuth every minute</option><option value="false">Use imported test ownership</option></select></label><button>Save host settings</button></form>
+        <h3>Add or update a collection</h3>
+        <form id="configure" class="grid">
+          <label>Collection ID<input name="id" pattern="[a-z][a-z0-9-]*" placeholder="nockmilio" required></label>
+          <label>Display name<input name="name" placeholder="Nockmilio" required></label>
+          <label>Network<select name="chain"><option value="8453">Base</option><option value="1">Ethereum</option></select></label>
+          <label>Contract<input name="contract" pattern="0x[0-9a-fA-F]{40}" required></label>
+          <label>Hosted group name<input name="group" pattern="[a-z][a-z0-9-]*" required></label>
+          <label>Managed role ID<input name="role" pattern="[a-z][a-z0-9-]*" placeholder="holder" required></label>
+          <label>On recognition<select name="recognition"><option value="dm">Send a claim link by DM</option><option value="invite">Invite every eligible ship</option><option value="none">Do nothing</option></select></label>
+          <label>On loss of eligibility<select name="removeMembership"><option value="true">Remove role and membership</option><option value="false">Remove role; keep membership</option></select></label>
+          <label class="wide">DM content (claim link is appended)<textarea name="message" maxlength="2048">You qualify for our group. Claim your membership:</textarea></label>
+          <button>Save collection</button>
+        </form>
+      </details>
+      <details><summary>Pending actions</summary><p class="muted">Preview of what the host would send or change.</p><div id="outbox"></div></details>
+    </section>
+    <footer><span>Your NFT stays in your wallet.</span><a id="logout" href="/~/logout" hidden>Sign out</a></footer>
+  </main>
+</body>
+</html>

@@ -1,129 +1,47 @@
-# Gater architecture
+# Architecture
 
-This is the proposed design as of 2026-10-25. Policies awaiting confirmation are collected in [decisions.md](decisions.md).
-
-## System boundary
-
-The MVP runs on the same ship that hosts the managed Tlon group. It supports multiple configured ERC-721 collections and groups, initially exercising one collection and one group. Ethereum mainnet uses chain ID `1`; Base mainnet uses `8453`. Azimuth L2 is its own ownership system derived from Ethereum and is distinct from Base.
+## First-pass data flow
 
 ```mermaid
 flowchart TD
-    A[Azimuth L1 and L2 ownership] --> B[Ship ownership adapter]
-    C[Ethereum or Base RPC] --> D[NFT ownership adapter]
-    B --> E[Gater eligibility and claim state]
-    D --> E
-    F[Member browser] --> G[Eyre and EAuth]
-    G --> E
-    E --> H[Desired membership and roles]
-    H --> I[Tlon groups adapter]
-    I --> J[Invitations and managed roles]
-    I --> E
+    A[Host ship azimuth owner index] -->|Periodic snapshot| G[Gater state and policy]
+    R[Ethereum or Base RPC] -->|Finalized logs and ownerOf| S[RPC reader]
+    S -->|Validated host-only snapshot import| G
+    B[Browser] --> E[Eyre / EAuth]
+    E -->|Authenticated ship claim| G
+    G --> C[Exclusive NFT-to-ship claims]
+    C --> P[Proposed admissions, roles and removals]
+    G --> O[Proposed DMs or broad invitations]
+    P --> V[Host action preview]
+    O --> V
 ```
 
-Gater performs reads against chain state; associating an NFT with a ship is an application-state operation. It does not transfer NFTs or require a new smart contract. The group host remains the authority over its group and can override its own agent.
+The delivery adapter is deliberately absent in this version. A future Tlon adapter consumes decisions, observes actual group state, and records ownership of the effects it applies. A Gall poke ack alone will not count as successful admission or role assignment.
 
-## Eligibility and association
+## State and invariants
 
-Use the effective **owner** address, not a management, spawning, voting, transfer proxy, or token approval. Limit initial eligibility to Azimuth points: galaxies, stars, and planets. Moons and comets need a separate delegation policy and are outside the MVP.
+`desk/sur/gater.hoon` defines collections, ship owners, NFT owners, exclusive claims, managed seats/roles, suppression, an effect queue, source observation times, checkpoints, and the state revision. Gall serializes updates. Claim/release requests include the state revision so simultaneous browser requests cannot both overwrite the same version.
 
-For ship `s` and collection `c`:
+An asset is `[collection-id token-id]`; its configuration fixes chain and contract. Token IDs are full uint256 values serialized as decimal strings. A ship must be an Azimuth-sized identity with the same nonzero address as the token owner. A claim records its owner so a changed owner invalidates it. Claiming first clears that ship's other token in the collection, then replaces the target token's association in the same transition.
 
-```text
-invite_eligible(s, c) =
-    ownership_sources_are_ready
-    AND effective_azimuth_owner(s) is a valid nonzero address
-    AND collection_balance(c, effective_azimuth_owner(s)) > 0
+Desired roles are unioned by group/ship across collections. Only roles tracked in Gater's `applied` map are considered for revocation; only `managed` seats are eligible for removal. A broad invite without a claim can retain membership while eligible; a lost claim removes its previously managed access by default. These maps currently serve the reducer and tests; populating them from observed Tlon state is unfinished.
 
-claim_eligible(s, token) =
-    authenticated_ship == s
-    AND s is a member of the relevant managed group
-    AND token belongs to an allowed collection
-    AND effective_azimuth_owner(s) == nft_owner(token)
-    AND both ownership observations satisfy the source policy
-```
+The reconciliation queue is a **preview**, not an executed transaction log. Pending entries are rebuilt after state changes and on a minute timer. Their numeric IDs are not durable delivery idempotency keys. Production transport must introduce generation-scoped receipts, retries, bounded history, and removal-before-addition barriers. Never send the preview list blindly.
 
-A token key is `(chain_id, contract_address, token_id)`. Use full-width integers for token IDs and decimal strings at the JSON boundary. Never infer the chain or collection from a token number or display name.
+## Source trust
 
-Store two indexes atomically: `token -> claim` and `(collection, ship) -> token`. The collection key includes chain ID and contract. Within one host, all managed groups consume the same association for that collection. A ship may have separate associations for different collections. This is a proposed interpretation of one-to-one mapping, not a global registry.
+The native reader polls `%azimuth`'s `/own` map when the host enables it. This includes the ship's effective L2 ownership view. Observation time does not prove chain freshness or index completeness; there is no finalized Azimuth checkpoint certificate in this version. The app displays stale data after 15 minutes without observation.
 
-For multi-collection groups, invite eligibility is the union of configured qualifying holdings. Role eligibility is the union of active claims mapped to each role. Losing one claim must not remove a role still justified by another claim.
+The external ERC-721 reader verifies the chain, contract code and ERC-165 support, requests bounded Transfer-log ranges, replays mint/transfer/burn events, verifies discovered holders with `ownerOf`, and checks the finalized block hash again before writing output. It refuses missing finality, changed checkpoints, inconsistent logs and owner mismatches. Full replay is intentionally simple; large collections need incremental indexing before regular operation.
 
-## Admission and permissions
-
-Separate three states: eligible for an invitation, admitted as a member, and entitled to an NFT role. Invitations do not reserve an NFT or grant its role.
-
-The default proposal is a social lobby plus role-restricted channels. Multiple ships at one address can join the lobby; only the associated ship gets the NFT role. Keeping a member after an NFT sale means they retain access to any channels open to ordinary members. Administrators must configure channel readers accordingly.
-
-Membership loss is configurable at the group level:
-
-| Policy | After confirmed loss |
-| --- | --- |
-| Retain members, proposed default | Remove unsupported managed roles; retain membership |
-| Require any qualifying holding | Remove managed members when their owner holds no qualifying NFT |
-| Require an active claim | Remove managed members without a claim after a joining grace period; later extension |
-
-An enforced membership gate needs private/secret admission and control over alternate entry paths. A public group or unrestricted invitation token can let an otherwise ineligible ship rejoin. Validate group privacy and token policy during setup. Admission changes remain subject to the ownership detection delay; ordinary Tlon admission is not an atomic on-chain check.
-
-Never automatically remove the host, protected administrators, or members outside the configured management scope. Tlon may reject removal of channel hosts; report this for operator resolution rather than claiming enforcement succeeded.
-
-Track invitations by group, ship, and eligibility generation. Rate-limit initial discovery and retries, honor bans, and suppress re-invitation after a user leaves or an administrator removes them. Allow an explicit rejoin request or operator reset. On loss of eligibility, revoke Gater-owned pending admission/invitation state; do not delete unrelated manual invitations. Do not assume an already-delivered notification can be erased.
-
-## Claims and reassignment
-
-Initial claims use EAuth and a fresh ownership check. A user selects an unclaimed token; they do not submit an authoritative wallet or ship identity. The backend derives identity from Eyre and ownership from the adapters.
-
-Proposed conflict policy, pending the user's choice:
-
-- An authenticated eligible ship can claim an unassociated token.
-- The currently associated ship can release its claim or nominate another eligible ship at the same owner address. The destination authenticates before activation.
-- A different ship cannot silently replace an active association. It needs release by the current ship or a narrowly scoped signature from the current wallet owner.
-- The host can suspend a claim, with an audit reason. It cannot make a non-owner token pass the normal eligibility check.
-
-EAuth establishes ship control, not wallet-key possession. The initial-claim rule intentionally delegates some authority to the ship operator. If that is too broad for hosted ships, enable wallet signatures for every claim instead. Signature support must specify domain, host, action, token, destination ship, expected claim revision, nonce, and expiry; consume the nonce once and validate ownership again. Contract-wallet verification needs a separate chain-aware design before it is supported.
-
-Two concurrent attempts use a claim revision and expected previous association. Gall serializes the state updates, but RPC and group actions are asynchronous: bind each response to the request and source generation, and reject stale results. A conflict returns the current association rather than overwriting it.
-
-Reassignment is atomic in Gater's indexes; Tlon side effects are not atomic with it. Put the claim into a moving state, remove the old entitlement, verify the old managed role is absent where it is no longer justified, then activate and grant the destination entitlement. If removal fails, keep the new grant pending. A restart resumes the durable operation. This favors a temporary gap over duplicate access caused by the move.
-
-## Ownership changes and freshness
-
-NFT transfers and burns, Azimuth owner changes, and point continuity changes invalidate affected claims and pending authorizations. Track an ownership generation so transferring an asset away and back cannot silently revive an old claim. A fresh eligible owner can create a new claim. The same rule applies if both assets move to a new owner together.
-
-Ownership observations are a pair of independently advancing chain/source checkpoints, not a single cross-chain transaction. There is an unavoidable detection and finality delay. Revalidate at claim acceptance and immediately before dispatching a new grant; continue reconciliation afterward.
-
-For NFT reads, start with finalized blocks where the provider supports them. Keep a separate discovery view if faster previews are useful. An Ethereum block count is not a substitute for Base finality. Surface the last processed height, hash, observation time, and policy in the admin view. See [Base's derivation specification](https://docs.base.org/base-chain/specs/protocol/consensus/derivation).
-
-Do not label current `%azimuth` scries as finalized ownership. Phase 0 must establish completeness, freshness, and the relationship between processed state and an Ethereum checkpoint. If those cannot be established, strict mode needs an independent finalized replay using Urbit's existing Azimuth libraries or a source providing an equivalent verifiable snapshot. A provisional source cannot issue strict-mode grants.
-
-When RPC or ownership sources are stale, freeze new invitations, claims, reassignments, and grants. Retain existing memberships and roles by default, mark them unverified, and alert the host; a missing response is not evidence of a sale. Resume changes after resynchronization. Groups needing automatic suspension after prolonged outages can add that explicit policy later.
-
-The MVP trusts the configured RPC provider for canonical chain data and complete responses. Hash/checkpoint checks detect inconsistencies but do not make a single-provider reader trustless. Host downtime also delays enforcement; expose this operational limit alongside source health.
-
-## Durable state and reconciliation
-
-| Record | Important fields |
-| --- | --- |
-| Group policy | Group flag, collections, managed role IDs, membership policy, protected ships, enabled/dry-run |
-| Collection | Chain, contract, standard, deployment block, discovery method, provider reference |
-| Source checkpoint | Height, hash, processed-through boundary, freshness, completeness, source generation |
-| Ownership indexes | Token-to-owner, owner-to-tokens, point-to-owner, owner-to-points |
-| Claim | Token key, ship, owner, revision, ownership generations, source checkpoints, status |
-| Invitation ledger | Eligibility generation, pending/sent/suppressed status, last attempt, provenance |
-| Effect outbox | Desired revision, group, ship, role/action, retry state, observed result |
-| Audit entry | Actor, reason, previous/new association, evidence, operation result |
-
-Version persistent state from the first runnable desk and test migrations. Apply chain batches together with their cursor; a crash must not advance the cursor without applying the ownership changes.
-
-Recompute desired state when either ownership source, group membership, policy, or a claim changes. Compare it with observed Tlon state and issue only necessary actions. Persist the outbox before dispatch, retry with backoff, and reread after uncertain outcomes. A poke acknowledgment alone does not establish the intended group state.
-
-Use dedicated managed role IDs. Gater only edits those roles and leaves unrelated roles intact. If a human wants an exception to a managed role, store that exception in Gater; Tlon's role set alone does not identify who granted it. Pause an incompatible or deleted group/role configuration rather than continuously recreating it.
+RPC snapshot import checks collection identity, observation age, increasing checkpoint height, and hash consistency at the same height. Snapshots are host-trusted inputs, not independently proved by the agent. A wrong deployment block, missing constructor/ERC-2309 mints, silently truncated provider results, or transfer-away-and-back between snapshots may evade this first index. This is why live delivery remains blocked. Use event generations and source provenance in the next version.
 
 ## HTTP boundary
 
-Serve the member page directly through Eyre under `/gater`; begin with Sail and small local assets. The public entry page contains a sign-in form. After EAuth, require the authenticated-request flag and derive the actor from `src.bowl`; never trust a submitted ship name. Keep host administration separate from member operations. The standard Landscape launcher is not the foreign member entry point. [EAuth documentation](https://docs.urbit.org/urbit-os/kernel/eyre/eauth).
+The host serves `/gater`, static JS/CSS, `GET /gater/me`, and `POST /gater/action`. The page initiates `/~/login` EAuth. Eyre delivers the remote authenticated ship as `src.bowl`; its `authenticated` flag is true only for local host sessions. Anonymous Eyre identities are comet-sized, which the app rejects. This identity distinction is covered by unit tests; a real two-ship EAuth handshake remains to be tested.
 
-Proposed routes are `GET /gater`, `GET /gater/api/me`, and POST operations for claim, release, and move. Admin configuration and dry-run results are host-only. Check CSRF tokens and request origin for mutations, bound payload sizes, rate-limit attempts, and serve private responses without shared caching. Recheck authorization on direct Gall actions as well as HTTP routes.
+Remote ships can only claim/release as themselves. Group/role/configuration and ownership input require the host identity. POSTs require a same-origin Origin/Host pair and `X-Gater: 1`. Responses are uncached; the page has a restrictive content security policy and inserts text with DOM `textContent`. There are no wallet or RPC credentials in the UI.
 
-Invalidate application authorizations after owner or continuity changes. The EAuth spike must test whether old Eyre sessions can be invalidated or freshness can be established; if not, require a new independently verified authorization for sensitive changes. A browser refresh alone is not fresh authentication.
+## Planned Tlon adapter
 
-RPC credentials stay server-side. Redact endpoint URLs and auth headers from logs and diagnostics. Treat wallet/ship correlations and claim history as host data; expose only what a member needs. Avoid rendering remote NFT HTML/SVG or fetching arbitrary token metadata URLs in the MVP. Display collection name and token ID first.
+Translate operations in a version-pinned module. For admission, approve an existing request or create a role-bearing pending invite; for a present member, assign only the configured roles. On replacement, observe successful removal of the old managed roles/seat before granting the new one. On loss, also cancel pending admissions. Respect bans, host/channel-host protections, manual memberships and administrative roles. Persist intent before delivery, observe after delivery, and resume safely after crashes.
