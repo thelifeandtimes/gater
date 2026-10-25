@@ -64,7 +64,7 @@ Keep all Tlon translation in one adapter. Do not let a foreign EAuth user send a
 
 Source inspection of `sys/vane/eyre.hoon` shows `authenticated` is true only for `%ours`. `%real` EAuth identity becomes `src.bowl`; anonymous `%fake` identities are comet-sized. Gater allows Azimuth-sized remote identities and requires the authenticated flag for host identity. Do not require that flag from every EAuth user. The alpha tests this distinction, but a two-ship handshake remains an integration gate.
 
-EAuth supplies the remote ship identity to the agent. A host-served member UI can initiate login using `/~/login` and return to `/gater`. Serve it independently of the ordinary `%docket` front end. Test remote endpoint discovery, reverse-proxy behavior, expiry, logout, and unauthorized requests on the deployed kernel. [Official EAuth documentation](https://docs.urbit.org/urbit-os/kernel/eyre/eauth).
+EAuth supplies the remote ship identity to the agent. The public `/gater` page initiates login using `/~/login` and returns to the separate authenticated `/gater/claim` page. Configuration lives at `/gater/config` and requires the local host session. These routes are independent of the ordinary `%docket` front end. Test remote endpoint discovery, reverse-proxy behavior, expiry, logout, and unauthorized requests on the deployed kernel. [Official EAuth documentation](https://docs.urbit.org/urbit-os/kernel/eyre/eauth).
 
 ## Nockmilio
 

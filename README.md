@@ -14,11 +14,13 @@
 
 An address with three planets and one NFT can therefore produce three introductory DMs, but only one active association. No wallet transaction or NFT transfer is involved.
 
+The public entry page is `/gater`. EAuth returns the visitor to `/gater/claim`, where their ship can manage its associations. Host configuration is a separate page at `/gater/config`; the agent requires an authenticated local host session for its HTML, script, and APIs. Claim responses contain no host settings or action outbox.
+
 ## What is here
 
 - `desk/`: persistent Gall state, policy reducers, host configuration, native `%azimuth` snapshot polling, EAuth-aware HTTP authorization, and the claim UI.
 - `scripts/scan.py`: read-only finalized ERC-721 RPC reader with bounded log requests and `ownerOf` checks. This first reader runs beside the ship; native Iris ingestion is planned.
-- `tests/`: 53 passing Hoon/Python scenarios, plus HTTP and browser checks. See the [verification record](docs/verification.md).
+- `tests/`: 66 passing Hoon/Python scenarios, plus HTTP and browser checks. See the [verification record](docs/verification.md).
 - [Development guide](docs/development.md): installation, demo fixtures, RPC input, and tests.
 - [Implementation plan](docs/implementation-plan.md), [architecture](docs/architecture.md), [decisions](docs/decisions.md), [integration evidence](docs/integrations.md), and [acceptance checks](docs/acceptance-tests.md).
 

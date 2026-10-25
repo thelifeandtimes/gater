@@ -7,7 +7,7 @@
 - [x] Configurable recognition: DM by default, invite all, or none.
 - [x] Sibling takeover, revision conflict checks, one-to-one mapping per collection.
 - [x] Role/membership loss policy, aggregation and host suppression in the reducer.
-- [x] Host-served claim page and configuration UI with EAuth-aware authorization.
+- [x] Separate public entry page, authenticated claim page and host-only configuration UI/APIs with EAuth-aware authorization.
 - [x] Native optional Azimuth snapshot polling.
 - [x] Read-only finalized ERC-721 RPC reader and checkpoint-validated import.
 - [x] Action preview and test-pier tooling.

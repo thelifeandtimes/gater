@@ -40,20 +40,31 @@
     [~ this(st (reconcile:policy (pull-azimuth p.result bowl) now.bowl))]
       %handle-http-request
     =+  !<([id=@ta req=inbound-request:eyre] vase)
-    =/  sit  site:(parse-request-line:server url.request.req)
-    =/  tail  ?~(sit %$ (rear sit))
+    =/  target  (route:web url.request.req)
+    =/  access  (access:web target req src.bowl our.bowl)
+    ?.  =(access 200)
+      :_  this
+      %+  give-simple-payload:app:server  id
+      ?:  &(=(access 401) =(target %claim) =(method.request.req %'GET'))
+        (redirect:web (landing-url:web url.request.req))
+      (error:web access ?:(=(access 403) 'Configuration is only available to the authenticated host.' ?:(=(access 401) 'Sign in with EAuth to claim membership.' 'Unknown endpoint.')))
     ?:  =(method.request.req %'GET')
       :_  this
       %+  give-simple-payload:app:server  id
-      ?:  =(tail %me)
-        ?.  (signed-in:web req src.bowl our.bowl)  (error:web 401 'Sign in with EAuth to claim membership.')
-        (response:web 200 (view:web st now.bowl src.bowl our.bowl))
-      ?:  =(tail %app)  (static:web bowl 'text/javascript' /web/app/js)
-      ?:  =(tail %style)  (static:web bowl 'text/css' /web/style/css)
-      (static:web bowl 'text/html' /web/index/html)
-    ?.  &(=(method.request.req %'POST') =(tail %action))
+      ?+  target  (error:web 404 'Unknown endpoint.')
+        %me            (response:web 200 (claim-view:web st now.bowl src.bowl our.bowl))
+        %config-state  (response:web 200 (config-view:web st now.bowl src.bowl our.bowl))
+        %landing       (static:web bowl 'text/html' /web/index/html)
+        %claim         (static:web bowl 'text/html' /web/claim/html)
+        %config        (static:web bowl 'text/html' /web/config/html)
+        %landing-js    (static:web bowl 'text/javascript' /web/landing/js)
+        %claim-js      (static:web bowl 'text/javascript' /web/claim/js)
+        %config-js     (static:web bowl 'text/javascript' /web/config/js)
+        %style         (static:web bowl 'text/css' /web/style/css)
+      ==
+    ?.  &(=(method.request.req %'POST') ?=(?(%action %config-action) target))
       [(give-simple-payload:app:server id (error:web 404 'Unknown endpoint.')) this]
-    ?.  &((signed-in:web req src.bowl our.bowl) (csrf:web req))
+    ?.  (csrf:web req)
       [(give-simple-payload:app:server id (error:web 403 'Use an authenticated same-origin request.')) this]
     ?~  body.request.req
       [(give-simple-payload:app:server id (error:web 400 'Missing JSON body.')) this]
@@ -61,11 +72,14 @@
       [(give-simple-payload:app:server id (error:web 413 'Request too large.')) this]
     ?~  jon=(de:json:html q.u.body.request.req)
       [(give-simple-payload:app:server id (error:web 400 'Invalid JSON.')) this]
+    ?.  (allowed-action:web target u.jon)
+      [(give-simple-payload:app:server id (error:web 403 'This action is not available at this endpoint.')) this]
     =/  result  (act:actions st now.bowl src.bowl our.bowl u.jon)
     ?-  -.result
       %|  [(give-simple-payload:app:server id (error:web 409 p.result)) this]
       %&  =.  st  (reconcile:policy (pull-azimuth p.result bowl) now.bowl)
-          [(give-simple-payload:app:server id (response:web 200 (view:web st now.bowl src.bowl our.bowl))) this]
+          =/  view  ?:(=(target %config-action) config-view:web claim-view:web)
+          [(give-simple-payload:app:server id (response:web 200 (view st now.bowl src.bowl our.bowl))) this]
     ==
   ==
 ++  on-watch
@@ -78,7 +92,7 @@
   ^-  (unit (unit cage))
   ?>  =(src.bowl our.bowl)
   ?+  path  [~ ~]
-    [%x %state ~]  ``json+!>((view:web st now.bowl our.bowl our.bowl))
+    [%x %state ~]  ``json+!>((config-view:web st now.bowl our.bowl our.bowl))
   ==
 ++  on-arvo
   |=  [=wire =sign-arvo]

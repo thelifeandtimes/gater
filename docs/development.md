@@ -26,7 +26,9 @@ In the fake ship's Dojo, start it:
 
 For later compatible reloads use `|revive %gater`. Alpha state-schema changes require an explicit migration; do not assume an old schema can load into a new build. The installer never wipes state automatically.
 
-Open `http://127.0.0.1:8190/gater`. The page offers EAuth to visitors and a local host-login link. Use the disposable ship's `+code` for local host login. Do not paste a real ship code into tooling or Git.
+Open `http://127.0.0.1:8190/gater`. This public page offers EAuth to visitors, returning them to `/gater/claim` after authentication. The footer's Host configuration link uses local login and returns the host to `/gater/config`. Use the disposable ship's `+code` for local host login. Do not paste a real ship code into tooling or Git.
+
+Claims and configuration use separate HTML, scripts and APIs. The agent enforces host access before serving any configuration page, script or data. A remote authenticated ship can use `/gater/claim` but receives 403 at `/gater/config`. Member responses contain no host settings or outbox. Existing signed-in users can follow the public page's Continue to your claims link.
 
 ## Fixture demo
 
@@ -39,7 +41,7 @@ python scripts/poke.py /tmp/gater-dev-nec tests/fixtures/owners.json
 python scripts/poke.py /tmp/gater-dev-nec tests/fixtures/nfts.json
 ```
 
-Sign in as the fake host, refresh, claim a token, and inspect Pending actions. You should see recognition DMs and admission/role intent. No actual DM or Tlon action is sent. Fixture observations expire after 15 minutes; reimport the fixtures when needed. Supplying fixture owners disables native Azimuth polling so it cannot silently replace the scenario.
+Sign in as the fake host, open `/gater/claim`, and claim a token. Then follow Host configuration to `/gater/config` and inspect Pending actions. You should see recognition DMs and admission/role intent. No actual DM or Tlon action is sent. Fixture observations expire after 15 minutes; reimport the fixtures when needed. Supplying fixture owners disables native Azimuth polling so it cannot silently replace the scenario.
 
 Sibling replacement, sale/removal, retention and aggregated roles are exercised by the Hoon suite. Remote user input can only name a collection/token/revision; the authenticated source ship is supplied by Gall/Eyre.
 
@@ -68,16 +70,18 @@ In Host settings, enable the host ship's `%azimuth` source to refresh its effect
 python -m unittest discover -s tests -p 'test_*.py' -v
 python scripts/check.py /tmp/gater-dev-nec
 python scripts/check.py /tmp/gater-dev-nec --file tests/actions.hoon
-node --check desk/web/app.js
+node --check desk/web/landing.js
+node --check desk/web/claim.js
+node --check desk/web/config.js
 python scripts/http_smoke.py /tmp/gater-dev-nec
 ```
 
 The Hoon tests run through the test pier's control socket against the loaded desk. They execute reducers and request guards without delivering messages. Compile with `scripts/install.py` first so tests use the current files.
 
-The HTTP smoke test requires the running fixture demo. It signs into the local disposable ship, checks authorization and claims, restores the previous association, and suspends/revives Gater to verify Gall save/load. It reads that test pier's login code internally without printing or saving it.
+The HTTP smoke test requires the running fixture demo. It checks public access, the login redirect, protected pages/scripts/APIs, rejected route aliases, separate member/configuration responses and action allowlists. It then signs into the local disposable ship, checks claims, restores the previous association, and suspends/revives Gater to verify Gall save/load. It reads that test pier's login code internally without printing or saving it. Remote ship access is covered by the Hoon authorization matrix, not a fabricated HTTP session.
 
 ## JSON actions
 
-`configure`, `settings`, `owners` (test snapshot), `nfts` (test snapshot), `snapshot` (RPC reader output), `suppress` and `unsuppress` require the host identity. `claim` and `release` take `collection`, decimal-string `token`, and decimal-string `revision`. Successful HTTP actions return the actor's new view; errors preserve the previous state. The HTTP POST endpoint additionally requires same-origin headers.
+`configure`, `settings`, `owners` (test snapshot), `nfts` (test snapshot), `snapshot` (RPC reader output), `suppress` and `unsuppress` require the host identity and use `POST /gater/config/action`. `claim` and `release` use `POST /gater/action` and take `collection`, decimal-string `token`, and decimal-string `revision`. Successful actions return the appropriate configuration or member view; errors preserve the previous state. Both HTTP POST endpoints require same-origin headers. Local Gall JSON pokes retain their existing host/ship authorization.
 
 The host-only Gall scry is `/x/state`. It returns JSON with the current revision, collections, actor-visible holdings and proposed effects. It is not a Tlon delivery receipt.

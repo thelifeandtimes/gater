@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gater · Your claims</title>
+  <link rel="stylesheet" href="/gater/style.css">
+  <script src="/gater/claim.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><a href="/gater" class="brand">%gater</a><span id="identity">Loading your ship…</span></header>
+    <section class="intro"><p class="eyebrow">Your membership</p><h1>Choose your<br>association.</h1><p>Claim an eligible NFT for this ship. You can move an existing claim from a sibling ship or release your own association.</p></section>
+    <p class="muted">Preview: claims are saved, but group access is not changed yet.</p>
+    <p id="notice" role="status" aria-live="polite"></p>
+    <section id="membership"><div class="section-heading"><h2>Your collections</h2><button id="refresh" class="quiet">Refresh</button></div><div id="collections"></div></section>
+    <noscript><p>Enable JavaScript to load your eligible NFTs and manage claims.</p></noscript>
+    <footer><span>Your NFT stays in your wallet.</span><a id="host-config" href="/gater/config" hidden>Host configuration</a><a href="/~/logout">Sign out</a></footer>
+  </main>
+</body>
+</html>

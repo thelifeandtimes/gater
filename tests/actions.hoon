@@ -88,4 +88,49 @@
 =/  result  (act st now ~nec ~nec json)
 ?>  ?=(%& -.result)
 ?>  (~(has by tokens.p.result) [%example maximum])
-(pure:m !>([%gater-actions-tests 19 %passed]))
+~|  %public-routes-are-open
+?>  (levy `(list @tas)`~[%landing %landing-js %style] |=(target=@tas =(200 (access target req(authenticated |) (bex 100) ~nec))))
+~|  %configuration-routes-reject-anonymous
+?>  (levy `(list @tas)`~[%config %config-js %config-state %config-action] |=(target=@tas =(403 (access target req(authenticated |) (bex 100) ~nec))))
+~|  %configuration-routes-reject-remote-ships
+?>  (levy `(list @tas)`~[%config %config-js %config-state %config-action] |=(target=@tas &(=(403 (access target req(authenticated |) ~zod ~nec)) =(403 (access target req(authenticated &) ~zod ~nec)))))
+~|  %configuration-routes-require-host-session
+?>  (levy `(list @tas)`~[%config %config-js %config-state %config-action] |=(target=@tas =(403 (access target req(authenticated |) ~nec ~nec))))
+~|  %configuration-routes-allow-authenticated-host
+?>  (levy `(list @tas)`~[%config %config-js %config-state %config-action] |=(target=@tas =(200 (access target req(authenticated &) ~nec ~nec))))
+~|  %claims-require-a-verified-ship
+?>  (levy `(list @tas)`~[%claim %claim-js %me %action] |=(target=@tas &(=(401 (access target req(authenticated |) (bex 100) ~nec)) =(401 (access target req(authenticated |) ~nec ~nec)) =(200 (access target req(authenticated |) ~zod ~nec)) =(200 (access target req(authenticated &) ~nec ~nec)))))
+~|  %path-and-extension-aliases-are-not-routes
+?>  (levy `(list @t)`~['/gater/x/config' '/gater/config.json' '/gater/config.js.map' '/gater/action.json' '/gater/app.js' '/gater/missing' '/gater/claim.js/anything' '/gater/config//state'] |=(url=@t =(%missing (route url))))
+?>  =(404 (access %missing req(authenticated &) ~nec ~nec))
+~|  %exact-routes-with-query-parameters
+?>  =(%landing (route '/gater?collection=example'))
+?>  =(%claim (route '/gater/claim/?collection=example'))
+?>  =(%config (route '/gater/config/'))
+?>  =(%config-state (route '/gater/config/state?ignored=yes'))
+~|  %login-return-accepts-only-a-collection-hint
+?>  =('/gater?collection=example' (landing-url '/gater/claim?collection=example&redirect=https://evil.example'))
+?>  =('/gater' (landing-url '/gater/claim?collection=https://evil.example'))
+?>  =('/gater' (landing-url '/gater/claim?redirect=https://evil.example'))
+~|  %claim-endpoint-rejects-host-actions
+?>  (levy `(list @t)`~['claim' 'release'] |=(action=@t (allowed-action %action (pairs:enjs:format ~[action+s+action]))))
+?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress'] |=(action=@t !(allowed-action %action (pairs:enjs:format ~[action+s+action]))))
+~|  %configuration-endpoint-rejects-claim-actions
+?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress'] |=(action=@t (allowed-action %config-action (pairs:enjs:format ~[action+s+action]))))
+?>  !(allowed-action %config-action (pairs:enjs:format ~[action+s+'claim']))
+?>  !(allowed-action %action ~)
+~|  %member-view-has-no-configuration-even-for-host
+=/  member  (claim-view st now ~nec ~nec)
+?>  ?=([%o *] member)
+?>  (levy `(list @t)`~['outbox' 'baseUrl' 'azimuthAuto' 'fixtures' 'admin'] |=(key=@t !(~(has by p.member) key)))
+=/  cols  (~(got by p.member) 'collections')
+?>  ?=([%a *] cols)
+?>  ?=(^ p.cols)
+=/  col  i.p.cols
+?>  ?=([%o *] col)
+?>  (levy `(list @t)`~['contract' 'recognition' 'removeMembership' 'message' 'role'] |=(key=@t !(~(has by p.col) key)))
+~|  %configuration-view-retains-host-data
+=/  admin  (config-view st now ~nec ~nec)
+?>  ?=([%o *] admin)
+?>  (levy `(list @t)`~['outbox' 'baseUrl' 'azimuthAuto' 'collections'] |=(key=@t (~(has by p.admin) key)))
+(pure:m !>([%gater-actions-tests 32 %passed]))

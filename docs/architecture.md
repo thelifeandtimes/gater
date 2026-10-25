@@ -38,9 +38,21 @@ RPC snapshot import checks collection identity, observation age, increasing chec
 
 ## HTTP boundary
 
-The host serves `/gater`, static JS/CSS, `GET /gater/me`, and `POST /gater/action`. The page initiates `/~/login` EAuth. Eyre delivers the remote authenticated ship as `src.bowl`; its `authenticated` flag is true only for local host sessions. Anonymous Eyre identities are comet-sized, which the app rejects. This identity distinction is covered by unit tests; a real two-ship EAuth handshake remains to be tested.
+The host serves three separate pages and two API surfaces:
 
-Remote ships can only claim/release as themselves. Group/role/configuration and ownership input require the host identity. POSTs require a same-origin Origin/Host pair and `X-Gater: 1`. Responses are uncached; the page has a restrictive content security policy and inserts text with DOM `textContent`. There are no wallet or RPC credentials in the UI.
+| Route | Access and purpose |
+| --- | --- |
+| `/gater`, `/gater/landing.js`, `/gater/style.css` | Public landing page, EAuth form and shared stylesheet |
+| `/gater/claim`, `/gater/claim.js` | Verified ship session; secondary claim page after login |
+| `GET /gater/me`, `POST /gater/action` | Verified ship session; holdings and claim/release only |
+| `/gater/config`, `/gater/config.js` | Authenticated local host only; configuration page |
+| `GET /gater/config/state`, `POST /gater/config/action` | Authenticated local host only; settings, collection policies, ownership input and proposed actions |
+
+The public page initiates `/~/login` EAuth with `/gater/claim` as the return path. A validated collection hint survives that transition. A signed-out visit to `/gater/claim` redirects to the public page; protected member APIs return 401, and host-only routes return 403 to everyone except the authenticated host. Complete paths are allowlisted; unknown paths, alternate extensions and the obsolete `/gater/app.js` return 404. The configuration HTML and script are never served to remote members. Member API responses omit host configuration and the outbox even when the host uses the claim page.
+
+Eyre delivers the remote authenticated ship as `src.bowl`; its `authenticated` flag is true only for local host sessions. Anonymous Eyre identities are comet-sized, which protected member routes reject. Host routes require both the host source ship and the authenticated flag. This identity distinction is covered by unit tests; a real two-ship EAuth handshake remains to be tested.
+
+Remote ships can only claim/release as themselves. The member endpoint refuses host actions even from the host; the configuration endpoint refuses claim/release actions. Group/role/configuration and ownership input require the host identity. POSTs require a same-origin Origin/Host pair and `X-Gater: 1`. Responses are uncached; each page has a restrictive content security policy and inserts text with DOM `textContent`. There are no wallet or RPC credentials in the UI.
 
 ## Planned Tlon adapter
 

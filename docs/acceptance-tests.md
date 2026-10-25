@@ -8,6 +8,8 @@ DM-default, invite-all and no-outreach modes; claim before membership; eligible 
 
 HTTP/input cases cover host versus remote EAuth-shaped identities, rejecting anonymous comet identities, same-origin guards, host-only configuration, the live-delivery lock, arbitrary collection defaults, malformed/duplicate ownership, empty snapshots, stale RPC snapshots, checkpoint identity/regression, and uint256 imports.
 
+Page separation cases cover public routes, host-only HTML/scripts/APIs, rejection of remote ships and unauthenticated host-shaped requests, member route authentication, exact path/extension matching, safe login return paths, separate action allowlists, and exclusion of configuration fields from member responses. HTTP smoke verifies the public-to-private redirect and the same separation on the running desk.
+
 ## RPC reader cases
 
 Finalized pagination; chain mismatch; unavailable/stale finality; missing contract; unsupported standard; changed block hash; ownerOf mismatch; transfer/burn replay; token ID zero and uint256 maximum; duplicate, removed, out-of-range and foreign-contract logs; missing mint history; and ERC-20-shaped events.
