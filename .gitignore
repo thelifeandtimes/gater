@@ -1,0 +1,20 @@
+# Host secrets and local configuration
+.env
+.env.*
+!.env.example
+*.local.json
+*.pem
+*.key
+
+# Local agent metadata
+/.agents/
+/.aws/
+/.codex/
+
+# Future build and test output
+/piers/
+/output/
+/dist/
+node_modules/
+__pycache__/
+.DS_Store

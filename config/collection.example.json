@@ -1,0 +1,33 @@
+{
+  "format": "gater-proposed-config-v1",
+  "enabled": false,
+  "mode": "dry-run",
+  "collection": {
+    "label": "Nockmilio",
+    "chainId": 8453,
+    "contractAddress": null,
+    "standard": "ERC-721",
+    "deploymentBlock": null,
+    "discoveryMethod": null,
+    "rpcProviderRef": "base-mainnet",
+    "finality": "finalized"
+  },
+  "group": {
+    "flag": null,
+    "managedRoleId": null,
+    "membershipLossPolicy": "retain-members",
+    "protectedShips": []
+  },
+  "claims": {
+    "scope": "host-and-collection",
+    "maxTokensPerShipPerCollection": 1,
+    "initialAuthority": "eauth-and-owner-match",
+    "occupiedClaimAuthority": "current-ship-or-owner-signature"
+  },
+  "azimuth": {
+    "preferredSource": "local-azimuth",
+    "requireCompleteIndex": true,
+    "requireVerifiedCheckpoint": true
+  },
+  "onSourceFailure": "freeze-new-entitlements"
+}
