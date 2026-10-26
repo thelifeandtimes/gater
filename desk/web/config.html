@@ -14,7 +14,7 @@
     <section id="admin">
       <details open><summary>Host settings</summary>
         <p class="muted">First-pass preview: decisions are queued for inspection. No DMs, invitations, or access changes are sent.</p>
-        <form id="settings"><label>Public host URL<input name="baseUrl" type="url" placeholder="https://your-ship.example" required></label><label>Azimuth source<select name="azimuthAuto"><option value="true">Read this ship’s %azimuth every minute</option><option value="false">Use imported test ownership</option></select></label><button>Save host settings</button></form>
+        <form id="settings"><label>Public host URL<input name="baseUrl" type="url" placeholder="https://your-ship.example" required></label><label>Azimuth source<select name="azimuthAuto"><option value="true">Follow this ship’s Azimuth ownership updates</option><option value="false">Use imported test ownership</option></select></label><button>Save host settings</button></form>
         <h3>Configured collections</h3><div id="configured"></div><h3>Add or update a collection</h3>
         <form id="configure" class="grid">
           <label>Collection ID<input name="id" pattern="[a-z][a-z0-9-]*" placeholder="nockmilio" required></label>
@@ -30,6 +30,7 @@
         </form>
       </details>
       <details><summary>Pending actions</summary><p class="muted">Preview of what the host would send or change.</p><div id="outbox"></div></details>
+      <details open><summary>Ownership sources</summary><p id="azimuth-status" class="muted"></p><div id="sources"></div></details>
     </section>
     <noscript><p>Enable JavaScript to load and save host configuration.</p></noscript>
     <footer><a href="/gater/claim">Your claims</a><a href="/gater">Public claim page</a><a href="/~/logout">Sign out</a></footer>

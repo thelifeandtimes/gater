@@ -45,9 +45,9 @@ def request(client, path, *args, **kwargs):
 
 
 def member_view(data):
-    assert not {'admin', 'outbox', 'baseUrl', 'azimuthAuto', 'fixtures'} & data.keys()
+    assert not {'admin', 'outbox', 'baseUrl', 'azimuthAuto', 'fixtures', 'azimuthStatus'} & data.keys()
     for row in data['collections']:
-        assert not {'contract', 'recognition', 'removeMembership', 'message', 'role'} & row.keys()
+        assert not {'contract', 'recognition', 'removeMembership', 'message', 'role', 'source', 'checkpoint'} & row.keys()
 
 
 for path in ('/gater', '/gater/', '/gater?collection=demo'):
@@ -73,6 +73,8 @@ for path in aliases:
 # Retrieve only this disposable test pier's code, never print it.
 reply = evaluate(args.pier, """=/  m  (strand ,vase)
 ;<  b=bowl:spider  bind:m  get-bowl
+~|  %only-disposable-fake-ships
+?>  .^(? %j /(scot %p our.b)/fake/(scot %da now.b))
 (pure:m !>((trip (scot %p .^(@p %j /(scot %p our.b)/code/(scot %da now.b)/(scot %p our.b))))))""")
 numbers = reply.removeprefix('[0 %avow 0 %noun ').removesuffix(']').split()
 code = ''.join(chr(int(value)) for value in numbers[:-1]).lstrip('~')

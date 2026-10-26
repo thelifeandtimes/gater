@@ -56,6 +56,11 @@
     ::  reconciliation have passed the deployment gate. Never pretend otherwise.
     ?:  (bool:j jon 'live' |)  [%| 'Live dispatch is not enabled in this first-pass desk. Inspect the outbox.']
     [%& st(base-url url, live |, azimuth-auto (bool:j jon 'azimuthAuto' azimuth-auto.st))]
+      %source-error
+    ?~  col=(slaw %tas (str:j jon 'collection'))  [%| 'Invalid collection.']
+    ?.  (~(has by collections.st) u.col)  [%| 'Unknown collection.']
+    =/  src  (~(gut by nft-sources.st) u.col *source)
+    [%& st(nft-sources (~(put by nft-sources.st) u.col src(healthy |)), revision +(revision.st))]
       %owners
     ::  Explicit fixtures are useful for testing; they never enable dispatch.
     =/  rows  (get:j jon 'owners')
@@ -94,9 +99,7 @@
       ?~  hash=(hex-number:j (crip (cass (trip (str:j jon 'blockHash')))))  [%| 'Invalid checkpoint hash.']
       ?.  &((gth u.hash 0) (lth u.hash (bex 256)))  [%| 'Invalid checkpoint hash.']
       ?^  previous=(~(get by checkpoints.st) u.col)
-        ?:  (lth u.block height.u.previous)  [%| 'Checkpoint regression refused.']
         ?:  (lth stamp (~(gut by nft-at.st) u.col ~1970.1.1))  [%| 'Observation timestamp regression refused.']
-        ?:  &(=(u.block height.u.previous) !=(u.hash hash.u.previous))  [%| 'Checkpoint hash changed. Reindex and investigate.']
         [%& stamp u.block u.hash]
       [%& stamp u.block u.hash]
     ?-  -.checked
@@ -121,23 +124,75 @@
   ^-  (each state @t)
     =/  rows  (get:j jon 'tokens')
     ?.  ?=([%a *] rows)  [%| 'tokens must be an array.']
+    =/  checked=(each source @t)
+      ?.  from-chain  [%& *source]
+      =/  coverage  (get:j jon 'coverage')
+      =/  method  (str:j coverage 'method')
+      ?.  ?=(?(%enumerable %events-supply) method)  [%| 'Snapshot requires verified discovery coverage.']
+      ?~  epoch=(hex-number:j (str:j jon 'epoch'))  [%| 'Snapshot requires a source epoch.']
+      ?.  &((gth u.epoch 0) (lth u.epoch (bex 256)))  [%| 'Invalid source epoch.']
+      ?~  start=(uint:j coverage 'fromBlock')  [%| 'Snapshot requires a bootstrap block.']
+      ?.  (lte u.start height)  [%| 'Bootstrap is beyond the checkpoint.']
+      ?~  supply=(uint:j coverage 'supply')  [%| 'Snapshot requires a verified supply.']
+      ?.  =(u.supply (lent p.rows))  [%| 'Snapshot supply does not match token count.']
+      ?~  code=(hex-number:j (str:j coverage 'codeHash'))  [%| 'Snapshot requires a code fingerprint.']
+      ?.  &((gth u.code 0) (lth u.code (bex 256)))  [%| 'Invalid code fingerprint.']
+      ?^  old=(~(get by nft-sources.st) col)
+        ?:  &(=(epoch.u.old u.epoch) !=(code-hash.u.old u.code))
+          [%| 'Code changed within a source epoch. Review and rebuild.']
+        [%& & method u.epoch u.start u.supply u.code]
+      [%& & method u.epoch u.start u.supply u.code]
+    ?-  -.checked
+      %|  checked
+      %&  (commit-tokens st now col observed height block-hash from-chain p.checked p.rows)
+    ==
+++  commit-tokens
+  |=  [st=state now=@da col=@tas observed=@da height=@ud block-hash=@ux from-chain=? src=source rows=(list json)]
+  ^-  (each state @t)
     =/  kept
       %-  ~(gas by *(map asset @ux))
       %+  skim  ~(tap by tokens.st)
       |=  [key=asset owner=@ux]
       !=(collection.key col)
-    =/  result=(each (map asset @ux) @t)
+    =/  generations
+      %-  ~(gas by *(map asset @ud))
+      %+  skim  ~(tap by token-generations.st)
+      |=  [key=asset generation=@ud]
+      !=(collection.key col)
+    =/  result=(each [kept=(map asset @ux) generations=(map asset @ud)] @t)
       |-
-      ?~  p.rows  [%& kept]
-      =/  row  i.p.rows
+      ?~  rows  [%& kept generations]
+      =/  row  i.rows
       ?~  id=(uint:j row 'id')  [%| 'Invalid token ID.']
       ?.  (lth u.id (bex 256))  [%| 'Invalid token ID.']
       ?~  owner=(address:j (str:j row 'owner'))  [%| 'Invalid NFT owner.']
       ?:  (~(has by kept) [col u.id])  [%| 'Duplicate token ID.']
-      $(p.rows t.p.rows, kept (~(put by kept) [col u.id] u.owner))
+      =/  generation  (uint:j row 'generation')
+      ?:  &(from-chain ?=(~ generation))  [%| 'Snapshot tokens require transfer generations.']
+      =/  gen  ?~(generation (~(gut by token-generations.st) [col u.id] 0) u.generation)
+      ?.  (lth gen (bex 256))  [%| 'Invalid transfer generation.']
+      ?:  &(from-chain =(gen 0))  [%| 'Transfer generation must be nonzero.']
+      $(rows t.rows, kept (~(put by kept) [col u.id] u.owner), generations (~(put by generations) [col u.id] gen))
     ?-  -.result
       %|  result
-      %&  =?  checkpoints.st  from-chain  (~(put by checkpoints.st) col [height block-hash])
-          [%& (prune:policy st(tokens p.result, nft-at (~(put by nft-at.st) col observed), fixtures |(fixtures.st !from-chain), revision +(revision.st)))]
+      %&  =/  old-source  (~(get by nft-sources.st) col)
+          =/  same-epoch  &(?=(^ old-source) from-chain =(epoch.u.old-source epoch.src))
+          =/  new-epoch  ?:(from-chain !same-epoch ?=(^ old-source))
+          ?^  checkpoint=(~(get by checkpoints.st) col)
+            ?:  &(from-chain same-epoch (lth height height.u.checkpoint))
+              [%| 'Checkpoint regression refused.']
+            ?:  &(from-chain same-epoch =(height height.u.checkpoint) !=(block-hash hash.u.checkpoint))
+              [%| 'Checkpoint hash changed. Review and rebuild in a new source epoch.']
+            ?:  &(from-chain same-epoch =(height height.u.checkpoint) |(!=(tokens.st kept.p.result) !=(token-generations.st generations.p.result)))
+              [%| 'Ownership changed at an unchanged checkpoint.']
+            $(checkpoints.st (~(del by checkpoints.st) col))
+          =.  claims.st
+            %-  ~(gas by *(map asset claim))
+            %+  skim  ~(tap by claims.st)
+            |=  [key=asset cl=claim]
+            |(!=(collection.key col) &(!new-epoch =((~(gut by token-generations.st) key 0) (~(gut by generations.p.result) key 0))))
+          =?  checkpoints.st  from-chain  (~(put by checkpoints.st) col [height block-hash])
+          =.  nft-sources.st  ?:(from-chain (~(put by nft-sources.st) col src) (~(del by nft-sources.st) col))
+          [%& (prune:policy st(tokens kept.p.result, token-generations generations.p.result, nft-at (~(put by nft-at.st) col observed), fixtures |(fixtures.st !from-chain), revision +(revision.st)))]
     ==
 --

@@ -70,7 +70,7 @@
   ^-  ?
   =/  action  (str:j jon 'action')
   ?:  =(target %action)  |(=(action 'claim') =(action 'release'))
-  &(=(target %config-action) ?=(?(%configure %settings %owners %nfts %snapshot %suppress %unsuppress) action))
+  &(=(target %config-action) ?=(?(%configure %settings %owners %nfts %snapshot %source-error %suppress %unsuppress) action))
 ++  redirect
   |=  location=@t
   ^-  simple-payload:http
@@ -117,6 +117,15 @@
     :-  %a
     %+  turn  ~(tap by collections.st)
     |=  [id=@tas cfg=collection]
+    =/  source  (~(get by nft-sources.st) id)
+    =/  checkpoint  (~(get by checkpoints.st) id)
+    =/  provenance=json
+      ?~  source  ~
+      %-  pairs:enjs:format
+      :~  healthy+b+healthy.u.source  method+s+method.u.source
+          epoch+s+(hex:j epoch.u.source)  'fromBlock'^s+(decimal:j start.u.source)
+          supply+s+(decimal:j supply.u.source)
+      ==
     =/  owned  (holdings:policy st who id)
     =/  tokens=json
       :-  %a
@@ -129,6 +138,7 @@
         contract+s+(addr:j contract.cfg)  group+s+group.cfg  role+s+role.cfg
         fresh+b+(fresh:policy st now id)  recognition+s+recognition.cfg
         'removeMembership'^b+kick.cfg  message+s+message.cfg  tokens+tokens
+        source+provenance  checkpoint+?~(checkpoint ~ s+(decimal:j height.u.checkpoint))
     ==
   =/  out=json
     ?.  =(who host)  [%a ~]
@@ -145,6 +155,6 @@
   :~  ship+s+(scot %p who)  host+s+(scot %p host)  admin+b+=(who host)
       revision+s+(decimal:j revision.st)  live+b+live.st  fixtures+b+fixtures.st
       collections+cols  outbox+out  'azimuthAuto'^b+azimuth-auto.st
-      'baseUrl'^s+base-url.st
+      'baseUrl'^s+base-url.st  'azimuthStatus'^s+azimuth-status.st
   ==
 --

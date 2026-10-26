@@ -1,0 +1,8 @@
+{
+  "collection": "example",
+  "chain": 8453,
+  "contract": "0x000000000000000000000000000000000000000a",
+  "discovery": "events-supply",
+  "deploymentBlock": 1,
+  "reviewedSource": "REPLACE: audited source URL and mint/event coverage notes"
+}

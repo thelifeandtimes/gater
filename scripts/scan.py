@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read finalized ERC-721 Transfer history. No wallet, signing, or transactions.
+"""Legacy Transfer-only diagnostic reader; use index.py for agent imports.
 
 This first reader deliberately uses full history on each run. A wrong start
 block, silent provider truncation, or constructor-only minting can make a log
@@ -37,13 +37,26 @@ def hash32(value):
 
 
 class Rpc:
-    def __init__(self, url):
+    def __init__(self, url, attempts=3, sleep=time.sleep):
         if not url.startswith('https://'):
             raise ValueError('Use an HTTPS RPC endpoint')
+        if type(attempts) is not int or attempts < 1:
+            raise ValueError('RPC attempts must be positive')
         self.url = url
         self.serial = 0
+        self.attempts = attempts
+        self.sleep = sleep
 
     def __call__(self, method, params):
+        for attempt in range(self.attempts):
+            try:
+                return self.request(method, params)
+            except RpcError as error:
+                if not error.retryable or attempt + 1 == self.attempts:
+                    raise
+                self.sleep(min(2 ** attempt, 8))
+
+    def request(self, method, params):
         self.serial += 1
         body = json.dumps({'jsonrpc': '2.0', 'id': self.serial, 'method': method, 'params': params}).encode()
         try:
@@ -52,12 +65,29 @@ class Rpc:
                 if len(raw) > 32 * 1024 * 1024:
                     raise ValueError('RPC response too large; reduce the block range')
             result = json.loads(raw)
-        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
+        except HTTPError as error:
+            raise RpcError(f'RPC {method} HTTP {error.code}',
+                           retryable=error.code in (429, 502, 503, 504),
+                           range_limit=error.code == 413) from None
+        except (URLError, OSError):
+            raise RpcError(f'RPC {method} transport failure', retryable=True) from None
+        except json.JSONDecodeError:
+            raise RpcError(f'RPC {method} invalid JSON') from None
+        if not isinstance(result, dict):
+            raise RpcError(f'RPC {method} invalid envelope')
+        if 'error' in result:
             # Provider URLs often contain API keys. Never echo the URL or body.
-            raise ValueError(f'RPC {method} failed ({type(error).__name__})') from None
-        if result.get('jsonrpc') != '2.0' or result.get('id') != self.serial or 'error' in result or 'result' not in result:
-            raise ValueError(f'RPC {method} returned an invalid response or error')
+            code = result['error'].get('code') if isinstance(result['error'], dict) else None
+            raise RpcError(f'RPC {method} rejected request', range_limit=code in (-32005, -32016))
+        if result.get('jsonrpc') != '2.0' or result.get('id') != self.serial or 'result' not in result:
+            raise RpcError(f'RPC {method} returned an invalid response')
         return result['result']
+
+
+class RpcError(ValueError):
+    def __init__(self, message, retryable=False, range_limit=False):
+        super().__init__(message)
+        self.retryable, self.range_limit = retryable, range_limit
 
 
 def apply_logs(tokens, logs, contract, first, last, seen):
@@ -142,6 +172,7 @@ def main():
     parser.add_argument('--window', type=int, default=2000)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
+    print('Legacy diagnostic output only: the agent requires index.py coverage and generations for RPC imports.')
     if not re.fullmatch('[a-z][a-z0-9-]*', args.collection):
         parser.error('Invalid collection ID')
     endpoint = os.environ.get(args.rpc_env)

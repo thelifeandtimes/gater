@@ -16,7 +16,10 @@
   |=  [st=state now=@da col=@tas]
   ^-  ?
   =/  nft  (~(gut by nft-at.st) col ~2000.1.1)
-  ?&  (gth azimuth-at.st ~2000.1.1)
+  =/  source  (~(get by nft-sources.st) col)
+  ?&  ?~(source & healthy.u.source)
+      |(!azimuth-auto.st =(%observed azimuth-status.st))
+      (gth azimuth-at.st ~2000.1.1)
       (lte azimuth-at.st now)
       (lte nft now)
       (lte (sub now azimuth-at.st) ttl.st)

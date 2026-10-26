@@ -12,7 +12,7 @@ now = datetime.datetime.now(datetime.timezone.utc)
 when = now.strftime('~%Y.%m.%d..%H.%M.%S') + f'..{int(now.microsecond * 65536 / 1000000):04x}'
 libs = [('sur','gater'),('lib','gater-policy')]
 if a.file.endswith('actions.hoon'):
-    libs += [('lib', 'gater-actions'), ('lib', 'gater-http')]
+    libs += [('lib', 'gater-actions'), ('lib', 'gater-http'), ('lib', 'gater-sources')]
 deps = [f"['~{a.ship}' %gater '{when}' %{kind} %{name} %hoon ~]" for kind,name in libs]
 source = Path(a.file).read_text()
 print(evaluate(a.pier,source,deps))

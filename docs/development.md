@@ -1,38 +1,32 @@
 # Development guide
 
-This is a preview desk for disposable development piers. It cannot enable live Tlon delivery. Vere and Python 3 are the only tooling requirements; the page has no npm/build dependency. The current kernel target is `%zuse 408`.
+This preview desk cannot enable live Tlon delivery. Use disposable development piers. Vere and Python 3 are required; the page has no npm/build dependency. The tested kernel target is `%zuse 408`.
 
 ## Boot and load
 
-From the repository root, create a local fake ship (do not run these against a real pier):
+From the repository root, boot a local fake ship:
 
 ```sh
 urbit -F nec -c /tmp/gater-dev-nec -b 127.0.0.1 --http-port 8190 --no-dock
 ```
 
-Use a second terminal:
+In another terminal:
 
 ```sh
 python scripts/install.py /tmp/gater-dev-nec --init
 ```
 
-`--init` is only for a new desk. The loader imports via Clay, suspends the development desk while replacing files, and compiles the complete agent. It leaves the desk suspended if compilation fails; inspect the ship console for the source diagnostic. For later updates omit `--init`. It does not delete files from the pier or reset saved agent state.
+`--init` is only for a new desk. The loader imports via Clay, suspends the development desk during replacement, and compiles the complete agent. It leaves the desk suspended if compilation fails; inspect the ship console for diagnostics. Omit `--init` for updates. It does not reset saved agent state.
 
-In the fake ship's Dojo, start it:
+In the fake ship's Dojo, run `|install our %gater` for the first install, or `|revive %gater` after an update. State v1 explicitly migrates v0: fixture associations survive; legacy non-fixture claims require reassertion because they lack transfer provenance.
 
-```hoon
-|install our %gater
-```
+Open `http://127.0.0.1:8190/gater`. This public page offers EAuth and returns visitors to `/gater/claim`. The Host configuration link uses local login and returns the host to `/gater/config`. Use the disposable ship's `+code`; never put a real ship code into tooling or Git.
 
-For later compatible reloads use `|revive %gater`. Alpha state-schema changes require an explicit migration; do not assume an old schema can load into a new build. The installer never wipes state automatically.
-
-Open `http://127.0.0.1:8190/gater`. This public page offers EAuth to visitors, returning them to `/gater/claim` after authentication. The footer's Host configuration link uses local login and returns the host to `/gater/config`. Use the disposable ship's `+code` for local host login. Do not paste a real ship code into tooling or Git.
-
-Claims and configuration use separate HTML, scripts and APIs. The agent enforces host access before serving any configuration page, script or data. A remote authenticated ship can use `/gater/claim` but receives 403 at `/gater/config`. Member responses contain no host settings or outbox. Existing signed-in users can follow the public page's Continue to your claims link.
+Configuration HTML, scripts and APIs require an authenticated local host session. A remote authenticated ship can use the claim page but receives 403 for configuration. Member responses omit host settings and the action outbox.
 
 ## Fixture demo
 
-These fixtures assign two fake ships, `~nec` and `~zod`, to one dummy address with tokens 7 and 8. They are **invented test data**, not Nockmilio ownership.
+These fixtures assign fake ships `~nec` and `~zod` to one dummy address with tokens 7 and 8. They are **invented data**, not Nockmilio holdings.
 
 ```sh
 python scripts/poke.py /tmp/gater-dev-nec tests/fixtures/settings.json
@@ -41,47 +35,63 @@ python scripts/poke.py /tmp/gater-dev-nec tests/fixtures/owners.json
 python scripts/poke.py /tmp/gater-dev-nec tests/fixtures/nfts.json
 ```
 
-Sign in as the fake host, open `/gater/claim`, and claim a token. Then follow Host configuration to `/gater/config` and inspect Pending actions. You should see recognition DMs and admission/role intent. No actual DM or Tlon action is sent. Fixture observations expire after 15 minutes; reimport the fixtures when needed. Supplying fixture owners disables native Azimuth polling so it cannot silently replace the scenario.
+Sign into `/gater/claim`, claim a token, then inspect Pending actions in `/gater/config`. Recognition DMs and admission/role intent appear, but nothing is sent. Observations expire after 15 minutes; reimport fixtures when needed. Importing fixture owners disables native Azimuth so it cannot silently replace the scenario.
 
-Sibling replacement, sale/removal, retention and aggregated roles are exercised by the Hoon suite. Remote user input can only name a collection/token/revision; the authenticated source ship is supplied by Gall/Eyre.
+## Index an actual ERC-721 collection
 
-## Read an actual ERC-721 collection
-
-1. Inspect the contract to establish deployment block and mint-event coverage.
-2. Configure the collection in the host UI or import an edited copy of `config/collection.example.json`.
-3. Set `GATER_RPC_URL` privately to an HTTPS Ethereum or Base endpoint. Do not pass the key as a shell argument or save it in this repository.
-4. Scan with the verified start block:
+1. Review the contract. Choose ERC-721Enumerable discovery or verified deployment-era event discovery with a meaningful totalSupply. Nonstandard collections need an adapter.
+2. Configure its policy in the host UI or import an edited `config/collection.example.json`.
+3. Set `GATER_RPC_URL` privately to an HTTPS endpoint for the selected chain. Do not pass API keys as shell arguments or commit them.
+4. Copy `config/index.example.json` to a private `*.local.json` file and replace every placeholder. This config describes the indexer separately from the agent's group policy.
 
 ```sh
-python scripts/scan.py --chain 8453 \
-  --contract 0x7465E492a183F16C0805e57262898c7bec11808A \
-  --collection nockmilio --from-block VERIFIED_DEPLOYMENT_BLOCK \
-  --output output/nockmilio.local.json
-python scripts/poke.py /tmp/gater-dev-nec output/nockmilio.local.json
+python scripts/index.py --config config/nockmilio.local.json \
+  --state output/nockmilio-index.local.json \
+  --output output/nockmilio-import.local.json \
+  --pier /tmp/gater-dev-nec
+# Add --watch --interval 60 to poll continuously.
 ```
 
-Replace `VERIFIED_DEPLOYMENT_BLOCK` with a number. `0` reads all history but may be prohibitively slow. Each run is a full replay and writes output only after verification. Reduce `--window` if the provider refuses a log range. The reader uses only standard-library HTTP/JSON; no signing key is involved.
+No verified Nockmilio bootstrap configuration is supplied yet. The example uses a dummy address/block. In `events-supply` mode, set the actual `deploymentBlock` and record source/mint review in `reviewedSource`. In `enumerable` mode those two fields may be omitted. Both modes require ERC-721 support and accurate totalSupply. ERC-2309 ranges are supported. ERC-1155 is not. `--max-tokens` changes the default 100,000-token bound.
 
-In Host settings, enable the host ship's `%azimuth` source to refresh its effective owner index every minute. That observation is not a proof of freshness/completeness. See [architecture](architecture.md) for the source limitations and the live-delivery gate. The tool does not read or alter an existing `%eth-watcher` API-key configuration.
+A single-writer lock protects each state file. Completed checkpoints resume after restart; interrupted initial bootstrap starts again. Provider range errors reduce `--window` automatically. Transient requests retry; watch-mode failures back off up to five minutes, or the configured interval if longer. Every poll validates all current holders, so large collections may need a tuned interval. Python's standard library handles HTTP/JSON; no signing key is involved.
 
-## Test
+`--pier` imports both successful snapshots and source failures into the selected local host. `--output` is replaced with `source-error` on rejected scans so an old success export is not mistaken for fresh data. Without `--pier`, import the output using `scripts/poke.py`. Failed host imports retry on the next watch poll. If the worker/host is offline, agent observations eventually expire.
+
+For checkpoint divergence or changed bytecode, investigate the provider/contract, back up state, then rerun explicitly with `--rebuild`. This starts a new epoch and requires new claims for that collection. With `--pier`, it pauses the source before rebuilding. Ordinary outages preserve the cursor and claims. `scripts/scan.py` remains a legacy diagnostic; its output lacks provenance and is no longer accepted as an RPC snapshot.
+
+Enable native Azimuth in Host settings to subscribe to ownership events and reconcile every minute. Only actual `%own` entries qualify, not proxies. A fresh subscription baseline clears claims because continuity through a gap is unknown. Ownership sources displays off/connecting/observed/gap, plus NFT import health, coverage, checkpoint and supply. An observation does not prove chain freshness/completeness; see [architecture](architecture.md). The tool does not read or alter existing `%eth-watcher` credentials.
+
+## Tests
 
 ```sh
 python -m unittest discover -s tests -p 'test_*.py' -v
 python scripts/check.py /tmp/gater-dev-nec
 python scripts/check.py /tmp/gater-dev-nec --file tests/actions.hoon
+python scripts/check.py /tmp/gater-dev-nec --file tests/sources-actions.hoon
 node --check desk/web/landing.js
 node --check desk/web/claim.js
 node --check desk/web/config.js
 python scripts/http_smoke.py /tmp/gater-dev-nec
+python scripts/source_smoke.py /tmp/gater-dev-nec
 ```
 
-The Hoon tests run through the test pier's control socket against the loaded desk. They execute reducers and request guards without delivering messages. Compile with `scripts/install.py` first so tests use the current files.
+Compile/load the current desk first. Hoon tests execute reducers through the control socket without delivering messages. HTTP smoke checks routing, separate member/configuration surfaces, host login, claim authority, restoration and Gall save/load. Source smoke tests a real native subscription, resume, synthetic provenance-bearing imports, failure pause and transfer-generation invalidation, then restores fixtures. The HTTP tests assert the selected pier is fake before reading its code internally; they never print or persist it.
 
-The HTTP smoke test requires the running fixture demo. It checks public access, the login redirect, protected pages/scripts/APIs, rejected route aliases, separate member/configuration responses and action allowlists. It then signs into the local disposable ship, checks claims, restores the previous association, and suspends/revives Gater to verify Gall save/load. It reads that test pier's login code internally without printing or saving it. Remote ship access is covered by the Hoon authorization matrix, not a fabricated HTTP session.
+For real EAuth integration, boot another fake ship in its own terminal, then run the test from a separate terminal:
+
+```sh
+urbit -F zod -c /tmp/gater-eauth-zod -b 127.0.0.1 --http-port 8191 --no-dock
+```
+
+```sh
+python scripts/eauth_smoke.py /tmp/gater-dev-nec /tmp/gater-eauth-zod
+```
+
+This uses normal HTTP login/approval/callbacks and Ames endpoint discovery. It verifies remote identity, host-only boundaries, sibling replacement, actor binding, restoration, logout and rejection. Use fixture token 8 unclaimed or claimed by the host, with no other remote claim. A newly published endpoint may need to cross the installed Eyre discovery cache's five-minute time boundary before its first lookup succeeds. A 503 at that point is not a Gater authorization failure. Server-side expiry, callback replay and public reverse proxies still need dedicated tests.
 
 ## JSON actions
 
-`configure`, `settings`, `owners` (test snapshot), `nfts` (test snapshot), `snapshot` (RPC reader output), `suppress` and `unsuppress` require the host identity and use `POST /gater/config/action`. `claim` and `release` use `POST /gater/action` and take `collection`, decimal-string `token`, and decimal-string `revision`. Successful actions return the appropriate configuration or member view; errors preserve the previous state. Both HTTP POST endpoints require same-origin headers. Local Gall JSON pokes retain their existing host/ship authorization.
+`configure`, `settings`, `owners` (fixture), `nfts` (fixture), `snapshot` (indexer), `source-error`, `suppress` and `unsuppress` require the host identity and use `POST /gater/config/action`. `claim` and `release` use `POST /gater/action`, taking a collection and decimal-string token/revision. Successful requests return the appropriate host or member view; rejected requests preserve state. Both endpoints require same-origin headers. Gall JSON pokes retain host/ship authorization.
 
-The host-only Gall scry is `/x/state`. It returns JSON with the current revision, collections, actor-visible holdings and proposed effects. It is not a Tlon delivery receipt.
+The host-only Gall scry `/x/state` returns configuration and proposed effects. These are not Tlon delivery receipts. See [verification](verification.md) and [remaining acceptance checks](acceptance-tests.md).

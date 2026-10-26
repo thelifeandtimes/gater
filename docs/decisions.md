@@ -16,6 +16,8 @@ Updated 2026-10-25 from the owner's follow-up.
 | Initial standard | ERC-721; Ethereum mainnet and Base mainnet |
 | Authorization | EAuth ship control and common ownership; no wallet signature for sibling replacement |
 | Source outage | Freeze grants and destructive reconciliation; preserve last known state, indicate staleness |
+| Source rebuild or continuity gap | Require new claims when ownership continuity cannot be established; ordinary RPC failures preserve claims |
+| NFT ingestion | Supported external indexer with explicit finalized checkpoints and discovery coverage; native Iris remains optional |
 | Role ownership | Dedicated non-admin roles; never treat all roles on a member as Gater-owned |
 | First-pass execution | Persistent on-ship claims and action preview; live delivery unavailable |
 

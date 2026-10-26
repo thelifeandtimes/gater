@@ -14,7 +14,7 @@ In the inspected `%azimuth` agent:
 
 | Interface | Meaning and caveat |
 | --- | --- |
-| `%x /own` scry | Address-to-ships ownership index; verify it covers all relevant points |
+| `%x /own` scry | Proxy/address-to-ships index on the installed kernel; select `%own`, exclude management/transfer/spawn/vote proxies, and verify point coverage |
 | `%x /point/~ship` scry | Effective point state, including L2; not a finalized historical query |
 | `%x /nas` scry | Naive PKI state; useful for adapter inspection/snapshots |
 | `/event` subscription | Initial `%naive-state`, then `%naive-diffs`; ownership-aware feed |
@@ -22,7 +22,7 @@ In the inspected `%azimuth` agent:
 
 `/event` differences do not themselves expose the full block provenance wrapper used internally. `%eth-watcher`'s `%x /block/<watch-path>` reports its next block to check, not automatically an atomic guarantee that `%azimuth` has processed that same boundary. Snapshot/event race handling, filtered PKI state, resets, and freshness need tests.
 
-The integration should subscribe, receive a snapshot, apply subsequent updates, and periodically reconcile against the ownership index. If the installed agent does not support a complete ownership view, expose that fact and use a separate source; do not silently reconfigure Jael or the ship's main PKI watcher.
+The implemented adapter subscribes, receives the initial snapshot, applies ownership changes and periodically reconciles the index. Local testing against the installed `%zuse 408` schema caught the proxy-keyed map and required timestamp segment in Gall scries. Only actual owners qualify. A subscription gap requires claims to be reasserted. Processed chain finality and complete point coverage remain unproved; the agent exposes observed feed status and keeps delivery disabled. It does not reconfigure Jael or the ship's main PKI watcher.
 
 Reading only Azimuth's Ethereum storage is insufficient for the requested effective L2 ownership. Urbit's [Azimuth repository](https://github.com/urbit/azimuth) describes the L1 contracts; the ship-side replay supplies the additional state.
 
@@ -34,7 +34,7 @@ ERC-721 enumeration is optional; token IDs need not be sequential. A general ada
 
 The inspected `%eth-watcher` supports separate watch configurations and exposes `%history`, `%logs`, and `%disavow` shapes. However, its current thread uses range-based fetching, has the near-head reorg loop commented out, and uses a block-distance margin. Its interface alone does **not** establish Base-aware finality or complete reorg handling.
 
-The first pass uses `scripts/scan.py` beside the ship and host-only snapshot import. The target architecture remains a small Gater-specific bounded RPC polling module through Iris with explicit checkpoints and finality. Reuse existing HTTP/ABI libraries. Only reuse `%eth-watcher` itself after demonstrating the required behavior on the pinned version; never replace the host's existing Azimuth watch configuration.
+`scripts/index.py` is now the supported external worker with incremental finalized history, atomic checkpoints, transfer generations, source epochs, failure signals and explicit rebuilds. Bootstrap supports enumeration or reviewed Transfer/ERC-2309 history, checked against totalSupply and ownerOf. The former `scripts/scan.py` is only a legacy diagnostic. Native Iris ingestion remains optional future work. Never replace the host's existing Azimuth watcher configuration. [ERC-2309 specification](https://eips.ethereum.org/EIPS/eip-2309).
 
 Existing RPC configuration may be reusable. `%eth-watcher` exposes `%x /dogs/configs`, which can include credential-bearing URLs. A host-only setup action may resolve a selected configuration internally and display only a redacted provider label. An Ethereum endpoint cannot be used as a Base endpoint just by changing a chain number. Verify `eth_chainId` and required methods for each endpoint. No private configuration was read during planning.
 
@@ -62,7 +62,7 @@ Keep all Tlon translation in one adapter. Do not let a foreign EAuth user send a
 
 ## Eyre and EAuth
 
-Source inspection of `sys/vane/eyre.hoon` shows `authenticated` is true only for `%ours`. `%real` EAuth identity becomes `src.bowl`; anonymous `%fake` identities are comet-sized. Gater allows Azimuth-sized remote identities and requires the authenticated flag for host identity. Do not require that flag from every EAuth user. The alpha tests this distinction, but a two-ship handshake remains an integration gate.
+Source inspection of `sys/vane/eyre.hoon` shows `authenticated` is true only for `%ours`. `%real` EAuth identity becomes `src.bowl`; anonymous `%fake` identities are comet-sized. Gater allows Azimuth-sized remote identities and requires the authenticated flag for host identity. Do not require that flag from every EAuth user. This distinction is verified through a real two-fake-ship EAuth handshake, including remote claims and rejection of configuration access. Session expiry, callback replay and deployed proxy behavior remain open acceptance checks.
 
 EAuth supplies the remote ship identity to the agent. The public `/gater` page initiates login using `/~/login` and returns to the separate authenticated `/gater/claim` page. Configuration lives at `/gater/config` and requires the local host session. These routes are independent of the ordinary `%docket` front end. Test remote endpoint discovery, reverse-proxy behavior, expiry, logout, and unauthorized requests on the deployed kernel. [Official EAuth documentation](https://docs.urbit.org/urbit-os/kernel/eyre/eauth).
 

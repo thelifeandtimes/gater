@@ -2,7 +2,7 @@
 
 `%gater` is an Urbit Gall agent and Eyre claim page for NFT-based Tlon group access. It runs on the group host. Collections are configuration, not hard-coded application logic.
 
-**Status: runnable first-pass preview.** Claims and configuration persist on the ship; the policy engine produces proposed actions. **It does not yet send DMs/invitations or change Tlon roles/membership.** The production delivery adapter, source-completeness checks, and remote EAuth integration test are the next milestone.
+**Status: source and authentication integration preview.** Claims and configuration persist on the ship; the policy engine produces proposed actions. **It does not yet send DMs/invitations or change Tlon roles/membership.** A persistent external indexer and real two-ship EAuth tests are implemented. Live collection verification and Azimuth processed-chain provenance remain prerequisites for the production delivery adapter.
 
 ## Behavior
 
@@ -18,9 +18,9 @@ The public entry page is `/gater`. EAuth returns the visitor to `/gater/claim`, 
 
 ## What is here
 
-- `desk/`: persistent Gall state, policy reducers, host configuration, native `%azimuth` snapshot polling, EAuth-aware HTTP authorization, and the claim UI.
-- `scripts/scan.py`: read-only finalized ERC-721 RPC reader with bounded log requests and `ownerOf` checks. This first reader runs beside the ship; native Iris ingestion is planned.
-- `tests/`: 66 passing Hoon/Python scenarios, plus HTTP and browser checks. See the [verification record](docs/verification.md).
+- `desk/`: migrated persistent Gall state, policy reducers, host configuration and source health, native `%azimuth` ownership subscription, EAuth authorization, and the claim UI.
+- `scripts/index.py`: supported read-only external ERC-721 indexer. Persists finalized checkpoints and transfer generations, verifies discovery coverage, retries provider failures, and imports source health into the host. Supports enumeration and reviewed Transfer/ERC-2309 histories; unusual collections need adapters.
+- `tests/`: Hoon/Python scenarios and local HTTP, source-lifecycle and two-ship EAuth integration tests. See the [verification record](docs/verification.md).
 - [Development guide](docs/development.md): installation, demo fixtures, RPC input, and tests.
 - [Implementation plan](docs/implementation-plan.md), [architecture](docs/architecture.md), [decisions](docs/decisions.md), [integration evidence](docs/integrations.md), and [acceptance checks](docs/acceptance-tests.md).
 

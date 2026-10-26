@@ -8,18 +8,23 @@
 - [x] Sibling takeover, revision conflict checks, one-to-one mapping per collection.
 - [x] Role/membership loss policy, aggregation and host suppression in the reducer.
 - [x] Separate public entry page, authenticated claim page and host-only configuration UI/APIs with EAuth-aware authorization.
-- [x] Native optional Azimuth snapshot polling.
+- [x] Native optional Azimuth snapshot polling (superseded by the event subscription below).
 - [x] Read-only finalized ERC-721 RPC reader and checkpoint-validated import.
 - [x] Action preview and test-pier tooling.
 
-## Next: prove the sources and authentication
+## Source and authentication stage
 
-1. Exercise a real EAuth handshake between two fake ships, including expiry, endpoint discovery, logout and reverse-proxy headers.
-2. Subscribe to Azimuth's ownership-aware `/event` feed; reconcile the initial snapshot without losing events. Establish completeness and processed chain checkpoints independently of poll time. Track ownership generations so a ship sold away and back does not inherit an old claim.
-3. Inspect Nockmilio's deployment and mint behavior. Add ERC-2309/constructor-mint or manifest discovery when needed. Prove bootstrap coverage before calling any snapshot complete.
-4. Replace full-replay Python polling with a native Iris reader (or a deliberately supported external indexer). Persist cursor and state atomically, back off on rate limits, recover from restarts and reorgs, and invalidate source health on failure. Do not infer ownership loss from provider errors.
+- [x] Real EAuth handshake between two fake ships: Ames endpoint discovery, approval, return redirect, remote identity, sibling replacement, host-only boundaries, logout and rejected approval.
+- [x] Native Azimuth `/event` initial snapshot and ordered ownership updates, plus periodic reconciliation. Select `%own` entries from the installed proxy-keyed index; management/transfer/spawn/vote authority does not qualify.
+- [x] Invalidate claims on observed ship ownership changes, NFT transfer-generation changes, index rebuilds and unobserved subscription gaps.
+- [x] Supported external indexer with atomic cursor/state/snapshot persistence, restart continuation, range-limit reduction, bounded retries/backoff, explicit source failure and reviewed rebuilds after divergence.
+- [x] ERC-721Enumerable bootstrap or reviewed deployment-era Transfer/ERC-2309 bootstrap, checked against totalSupply and ownerOf at a finalized checkpoint.
+- [x] State v0→v1 migration, source-health UI, reducer tests, provider simulations and local integration tests.
+- [ ] Verify the actual Nockmilio contract, deployment/mint coverage and live Ethereum/Base provider behavior. Deferred until the user supplies an RPC endpoint; the example is not a verified bootstrap configuration.
+- [ ] Establish Azimuth completeness and an atomic processed chain checkpoint independently of subscription/poll time. The upstream event feed lacks that certificate.
+- [ ] Test server-side EAuth expiry, callback replay and deployment reverse-proxy behavior.
 
-Exit: real-source snapshots have explicit coverage/provenance and remote authentication is tested, with replay/restart evidence.
+Exit: the remaining real-source and deployed authentication checks above pass. Local tests establish the implemented behavior, not production source completeness. Native Iris ingestion is an optional later replacement for the supported external worker.
 
 ## Then: Tlon delivery and observed reconciliation
 

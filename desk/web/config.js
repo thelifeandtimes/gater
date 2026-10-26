@@ -22,6 +22,18 @@ function render() {
   $('identity').textContent = `${state.ship} · host`;
   $('settings').elements.baseUrl.value = state.baseUrl;
   $('settings').elements.azimuthAuto.value = String(state.azimuthAuto);
+  $('azimuth-status').textContent = state.azimuthAuto
+    ? `Azimuth feed: ${state.azimuthStatus}. Processed chain finality and coverage are not yet proved by this feed.`
+    : 'Azimuth feed is off. Imported ownership is used for the preview.';
+  const sources = $('sources'); sources.replaceChildren();
+  for (const c of state.collections) {
+    const row = node('div', undefined, 'effect');
+    row.append(node('strong', c.name || c.id));
+    row.append(node('p', c.source
+      ? `${c.source.healthy ? (c.fresh ? 'Import healthy' : 'Claims paused; ownership data is stale or unavailable') : 'Source failed; claims paused'} · ${c.source.method || 'no coverage'} · checkpoint ${c.checkpoint || 'none'} · ${c.source.supply} tokens`
+      : 'No verified index import. Fixture data may be available for testing.', 'muted'));
+    sources.append(row);
+  }
   const configured = $('configured'); configured.replaceChildren();
   for (const c of state.collections) {
     const row = node('article', undefined, 'collection');

@@ -63,6 +63,8 @@
       contract+s+'0x0000000000000000000000000000000000000abc'
       'observedAt'^s+timestamp  block+s+'42'
       'blockHash'^s+'0x1111111111111111111111111111111111111111111111111111111111111111'
+      epoch+s+'0x1'
+      coverage+(pairs:enjs:format ~[method+s+'events-supply' 'fromBlock'^s+'1' supply+s+'0' 'codeHash'^s+'0xabc'])
       tokens+a+~
   ==
 =/  result  (act st now ~nec ~nec snap)
@@ -114,21 +116,21 @@
 ?>  =('/gater' (landing-url '/gater/claim?redirect=https://evil.example'))
 ~|  %claim-endpoint-rejects-host-actions
 ?>  (levy `(list @t)`~['claim' 'release'] |=(action=@t (allowed-action %action (pairs:enjs:format ~[action+s+action]))))
-?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress'] |=(action=@t !(allowed-action %action (pairs:enjs:format ~[action+s+action]))))
+?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress' 'source-error'] |=(action=@t !(allowed-action %action (pairs:enjs:format ~[action+s+action]))))
 ~|  %configuration-endpoint-rejects-claim-actions
-?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress'] |=(action=@t (allowed-action %config-action (pairs:enjs:format ~[action+s+action]))))
+?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress' 'source-error'] |=(action=@t (allowed-action %config-action (pairs:enjs:format ~[action+s+action]))))
 ?>  !(allowed-action %config-action (pairs:enjs:format ~[action+s+'claim']))
 ?>  !(allowed-action %action ~)
 ~|  %member-view-has-no-configuration-even-for-host
 =/  member  (claim-view st now ~nec ~nec)
 ?>  ?=([%o *] member)
-?>  (levy `(list @t)`~['outbox' 'baseUrl' 'azimuthAuto' 'fixtures' 'admin'] |=(key=@t !(~(has by p.member) key)))
+?>  (levy `(list @t)`~['outbox' 'baseUrl' 'azimuthAuto' 'fixtures' 'admin' 'azimuthStatus'] |=(key=@t !(~(has by p.member) key)))
 =/  cols  (~(got by p.member) 'collections')
 ?>  ?=([%a *] cols)
 ?>  ?=(^ p.cols)
 =/  col  i.p.cols
 ?>  ?=([%o *] col)
-?>  (levy `(list @t)`~['contract' 'recognition' 'removeMembership' 'message' 'role'] |=(key=@t !(~(has by p.col) key)))
+?>  (levy `(list @t)`~['contract' 'recognition' 'removeMembership' 'message' 'role' 'source' 'checkpoint'] |=(key=@t !(~(has by p.col) key)))
 ~|  %configuration-view-retains-host-data
 =/  admin  (config-view st now ~nec ~nec)
 ?>  ?=([%o *] admin)

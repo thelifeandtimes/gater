@@ -4,8 +4,8 @@
 
 ```mermaid
 flowchart TD
-    A[Host ship azimuth owner index] -->|Periodic snapshot| G[Gater state and policy]
-    R[Ethereum or Base RPC] -->|Finalized logs and ownerOf| S[RPC reader]
+    A[Host ship azimuth owner index] -->|Initial snapshot and ownership events| G[Gater state and policy]
+    R[Ethereum or Base RPC] -->|Finalized logs and ownerOf| S[Persistent external indexer]
     S -->|Validated host-only snapshot import| G
     B[Browser] --> E[Eyre / EAuth]
     E -->|Authenticated ship claim| G
@@ -20,7 +20,7 @@ The delivery adapter is deliberately absent in this version. A future Tlon adapt
 
 ## State and invariants
 
-`desk/sur/gater.hoon` defines collections, ship owners, NFT owners, exclusive claims, managed seats/roles, suppression, an effect queue, source observation times, checkpoints, and the state revision. Gall serializes updates. Claim/release requests include the state revision so simultaneous browser requests cannot both overwrite the same version.
+`desk/sur/gater.hoon` defines collections, ship owners, NFT owners and transfer generations, exclusive claims, managed seats/roles, suppression, an effect queue, source health/epochs/coverage, observation times, checkpoints, and the state revision. Gall serializes updates. Claim/release requests include the state revision so simultaneous browser requests cannot both overwrite the same version. The explicit v0→v1 migration preserves fixture associations; legacy non-fixture claims lack provenance and require a new claim.
 
 An asset is `[collection-id token-id]`; its configuration fixes chain and contract. Token IDs are full uint256 values serialized as decimal strings. A ship must be an Azimuth-sized identity with the same nonzero address as the token owner. A claim records its owner so a changed owner invalidates it. Claiming first clears that ship's other token in the collection, then replaces the target token's association in the same transition.
 
@@ -30,11 +30,15 @@ The reconciliation queue is a **preview**, not an executed transaction log. Pend
 
 ## Source trust
 
-The native reader polls `%azimuth`'s `/own` map when the host enables it. This includes the ship's effective L2 ownership view. Observation time does not prove chain freshness or index completeness; there is no finalized Azimuth checkpoint certificate in this version. The app displays stale data after 15 minutes without observation.
+When enabled, the native adapter subscribes to `%azimuth`'s `/event`, receives its initial `%naive-state`, and consumes `%point ... %owner ...` differences. Its installed `%zuse 408` ownership map is keyed by `[proxy address]`; only `%own` entries are eligible. The adapter also checks `/own` once per minute. Observed ownership changes prune claims immediately, so transferring a ship away and back does not resurrect its old association. A fresh subscription or mismatched periodic snapshot cannot prove continuity across the gap: it clears claims and requires reassertion. Existing Gall subscriptions are retained across compatible agent reloads.
 
-The external ERC-721 reader verifies the chain, contract code and ERC-165 support, requests bounded Transfer-log ranges, replays mint/transfer/burn events, verifies discovered holders with `ownerOf`, and checks the finalized block hash again before writing output. It refuses missing finality, changed checkpoints, inconsistent logs and owner mismatches. Full replay is intentionally simple; large collections need incremental indexing before regular operation.
+Native state includes effective L2 ownership, but observation time does not prove chain freshness or complete PKI coverage. `/event` strips the internal processed-block wrapper. A connected feed is therefore reported as *observed*, not finalized; live delivery remains gated on resolving this limitation. A missing/kicked subscription pauses claims while reconnecting. Ordinary observations expire after 15 minutes.
 
-RPC snapshot import checks collection identity, observation age, increasing checkpoint height, and hash consistency at the same height. Snapshots are host-trusted inputs, not independently proved by the agent. A wrong deployment block, missing constructor/ERC-2309 mints, silently truncated provider results, or transfer-away-and-back between snapshots may evade this first index. This is why live delivery remains blocked. Use event generations and source provenance in the next version.
+`scripts/index.py` is the supported external NFT worker. It verifies chain, bytecode and ERC-165 support and uses only `finalized`, never a fallback to `latest`. Bootstrap either enumerates all current tokens with ERC-721Enumerable or replays Transfer/ERC-2309 events from a reviewed deployment block. Event mode checks that code was absent immediately before deployment. Both modes require totalSupply agreement and validate every ownerOf at the pinned checkpoint. Enumeration can handle constructor mints with no logs; event-only contracts with incomplete mint coverage or no meaningful totalSupply need a separate adapter.
+
+The worker atomically persists its cursor, owner map, transfer generations, source epoch and import snapshot in one file. Later runs replay only new finalized ranges, verify canonical log/checkpoint hashes and owners, and recheck the final header. Transfers away and back change generation even when the final owner is unchanged. Failed runs preserve the last good data and export/import `source-error`, which pauses claims and proposed actions without erasing claims or inferring a sale. A completed scan survives process restart; an interrupted initial bootstrap restarts from the beginning. Token validation is still O(collection size) per poll.
+
+Checkpoint divergence or bytecode change requires source review and explicit `--rebuild`. A successful rebuild creates a new epoch, invalidates that collection's claims and can replace the old checkpoint. Within an epoch, imports reject checkpoint regression/hash conflicts, code changes, and changed ownership/generations at the same checkpoint. Imports also validate collection identity, age, supply count, coverage and uint256 generations. They are host-trusted inputs, not cryptographic proofs of RPC answers. An untrustworthy provider can omit a complete transfer-away-and-back sequence; proxy implementation upgrades may leave proxy bytecode unchanged. Production use still requires contract-specific review and live provider verification.
 
 ## HTTP boundary
 
@@ -50,7 +54,7 @@ The host serves three separate pages and two API surfaces:
 
 The public page initiates `/~/login` EAuth with `/gater/claim` as the return path. A validated collection hint survives that transition. A signed-out visit to `/gater/claim` redirects to the public page; protected member APIs return 401, and host-only routes return 403 to everyone except the authenticated host. Complete paths are allowlisted; unknown paths, alternate extensions and the obsolete `/gater/app.js` return 404. The configuration HTML and script are never served to remote members. Member API responses omit host configuration and the outbox even when the host uses the claim page.
 
-Eyre delivers the remote authenticated ship as `src.bowl`; its `authenticated` flag is true only for local host sessions. Anonymous Eyre identities are comet-sized, which protected member routes reject. Host routes require both the host source ship and the authenticated flag. This identity distinction is covered by unit tests; a real two-ship EAuth handshake remains to be tested.
+Eyre delivers the remote authenticated ship as `src.bowl`; its `authenticated` flag is true only for local host sessions. Anonymous Eyre identities are comet-sized, which protected member routes reject. Host routes require both the host source ship and the authenticated flag. This distinction is covered by unit tests and a real EAuth handshake between local fake ships. Expiry and deployment reverse-proxy behavior remain separate acceptance checks.
 
 Remote ships can only claim/release as themselves. The member endpoint refuses host actions even from the host; the configuration endpoint refuses claim/release actions. Group/role/configuration and ownership input require the host identity. POSTs require a same-origin Origin/Host pair and `X-Gater: 1`. Responses are uncached; each page has a restrictive content security policy and inserts text with DOM `textContent`. There are no wallet or RPC credentials in the UI.
 
