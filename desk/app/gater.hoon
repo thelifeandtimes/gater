@@ -1,5 +1,5 @@
 /-  *gater
-/+  default-agent, server, web=gater-http, policy=gater-policy, actions=gater-actions, sources=gater-sources
+/+  default-agent, server, web=gater-http, policy=gater-policy, actions=gater-actions, sources=gater-sources, wallet=gater-wallet
 |%
 +$  card  card:agent:gall
 ++  pull-azimuth
@@ -84,7 +84,7 @@
         %config-js     (static:web bowl 'text/javascript' /web/config/js)
         %style         (static:web bowl 'text/css' /web/style/css)
       ==
-    ?.  &(=(method.request.req %'POST') ?=(?(%action %config-action) target))
+    ?.  &(=(method.request.req %'POST') ?=(?(%action %config-action %wallet-challenge) target))
       [(give-simple-payload:app:server id (error:web 404 'Unknown endpoint.')) this]
     ?.  (csrf:web req)
       [(give-simple-payload:app:server id (error:web 403 'Use an authenticated same-origin request.')) this]
@@ -94,6 +94,14 @@
       [(give-simple-payload:app:server id (error:web 413 'Request too large.')) this]
     ?~  jon=(de:json:html q.u.body.request.req)
       [(give-simple-payload:app:server id (error:web 400 'Invalid JSON.')) this]
+    ?:  =(target %wallet-challenge)
+      =/  challenge  (challenge:wallet st now.bowl src.bowl our.bowl u.jon)
+      :_  this
+      %+  give-simple-payload:app:server  id
+      ?-  -.challenge
+        %|  (error:web 409 p.challenge)
+        %&  (response:web 200 p.challenge)
+      ==
     ?.  (allowed-action:web target u.jon)
       [(give-simple-payload:app:server id (error:web 403 'This action is not available at this endpoint.')) this]
     =/  result  (act:actions st now.bowl src.bowl our.bowl u.jon)

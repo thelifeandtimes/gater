@@ -110,12 +110,18 @@ def main():
     assert original in (None, before['host']), 'Use an unclaimed or host-owned fixture token 8'
     payload = {'action': 'claim', 'collection': 'demo', 'token': '8', 'revision': before['revision'], 'ship': before['host']}
     status, body, _ = request(browser, host + '/gater/action', payload)
+    if original:
+        assert status == 409, 'Unsigned sibling takeover must fail'
+        status, body, _ = request(admin, host + '/gater/action', {'action': 'reassign',
+            'collection': 'demo', 'token': '8', 'target': args.ship, 'revision': before['revision']})
     assert status == 200, body
     claimed = json.loads(body)
     assert next(t for c in claimed['collections'] if c['id'] == 'demo' for t in c['tokens'] if t['id'] == '8')['ship'] == args.ship
-    actor = admin if original else browser
-    restore = {'action': 'claim' if original else 'release', 'collection': 'demo', 'token': '8', 'revision': claimed['revision']}
-    assert request(actor, host + '/gater/action', restore)[0] == 200
+    # Even the host cannot bypass another ship's association through claim.
+    assert request(admin, host + '/gater/action', dict(payload, revision=claimed['revision']))[0] == 409
+    restore = {'action': 'reassign' if original else 'release', 'collection': 'demo',
+               'token': '8', 'target': before['host'], 'revision': claimed['revision']}
+    assert request(browser, host + '/gater/action', restore)[0] == 200
     request(browser, host + '/~/logout')
     assert request(browser, host + '/gater/me')[0] == 401
     assert request(browser, host + '/gater/claim')[0] == 303
@@ -123,7 +129,7 @@ def main():
     approval = start(browser, host, remote, args.ship)
     approve(browser, host, remote, approval, grant=False)
     assert request(browser, host + '/gater/me')[0] == 401
-    print('EAuth smoke passed: discovery, approval, redirect, remote identity, protected configuration, sibling replacement, actor binding, restoration, logout, rejection.')
+    print('EAuth smoke passed: discovery, approval, redirect, remote identity, protected configuration, unsigned takeover denial, linked-ship transfer, actor binding, restoration, logout, rejection.')
 
 
 if __name__ == '__main__':

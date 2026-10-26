@@ -4,7 +4,7 @@ Automated suites live in `tests/`; see [development](development.md) for command
 
 ## Executed reducer/input cases
 
-DM-default, invite-all and no-outreach modes; claim before membership; eligible sibling takeover; concurrent revision conflict; unrelated wallet rejection; one token per ship per collection; release authority; stale inputs; NFT and ship-owner changes; remove-role-and-membership default; optional membership retention; another collection sustaining the same role; broad-invite eligibility loss; retaining an eligible broad-invite member before claiming; and preserving ships across distinct Azimuth owner addresses.
+DM-default, invite-all and no-outreach modes; claim before membership; unsigned sibling takeover denial; linked-ship-authorized reassignment; concurrent revision conflict; unrelated wallet rejection; one token per ship per collection; release authority; stale inputs; NFT and ship-owner changes; remove-role-and-membership default; optional membership retention; another collection sustaining the same role; broad-invite eligibility loss; retaining an eligible broad-invite member before claiming; and preserving ships across distinct Azimuth owner addresses.
 
 HTTP/input cases cover host versus remote EAuth-shaped identities, rejecting anonymous comet identities, same-origin guards, host-only configuration, the live-delivery lock, arbitrary collection defaults, malformed/duplicate ownership, empty snapshots, stale RPC snapshots, checkpoint identity/regression, and uint256 imports.
 
@@ -20,7 +20,13 @@ Persistent indexer cases add restart continuation, transfer-away-and-back genera
 
 ## Local integration
 
-The source smoke test receives the native Azimuth initial snapshot, resumes its subscription, imports synthetic provenance-bearing NFT snapshots, pauses on failure and invalidates a claim after a simulated transfer-away-and-back. The EAuth smoke test uses two real running fake ships, Ames discovery and normal browser HTTP endpoints, then verifies remote identity, sibling replacement, host-only boundaries, actor binding, restoration, logout and rejected approval. These are local tests, not live chain or Tlon proofs.
+The source smoke test receives the native Azimuth initial snapshot, resumes its subscription, imports synthetic provenance-bearing NFT snapshots, pauses on failure and invalidates a claim after a simulated transfer-away-and-back. The EAuth smoke test uses two real running fake ships, Ames discovery and normal browser HTTP endpoints, then verifies remote identity, unsigned takeover denial, linked-ship transfer, host-only boundaries, actor binding, restoration, logout and rejected approval. These are local tests, not live chain or Tlon proofs.
+
+## Strict reassignment cases
+
+The wallet suite checks an independent eth-account signature/hash vector, valid owner authorization, wrong signer, replay, expiry, excess validity, host/URL/chain/token/recipient/generation/owner changes, stale inputs, host suppression, malformed signatures, high-s and invalid recovery IDs. It also covers linked-ship authority, ineligible recipients, refusal to displace a recipient's other claim, and independence across collections.
+
+The wallet HTTP smoke test signs a real server-generated challenge using public test key 1, submits it through a remote EAuth session, rejects unsigned/forged/spoofed/replayed requests, and restores the association through linked-ship approval. Browser checks verify the transfer form and visible wallet message/signature controls. Browser-extension signing and hardware-wallet compatibility remain pilot checks.
 
 ## Production acceptance still outstanding
 

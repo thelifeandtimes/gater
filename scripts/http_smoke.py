@@ -63,6 +63,7 @@ assert status == 303 and headers.get('Location') == '/gater?collection=demo'
 assert request(anonymous, '/gater/claim.js')[0] == 401
 assert request(anonymous, '/gater/me')[0] == 401
 assert request(anonymous, '/gater/action', {'action': 'claim'})[0] == 401
+assert request(anonymous, '/gater/wallet-challenge', {})[0] == 401
 for path in ('/gater/config', '/gater/config/', '/gater/config.js', '/gater/config/state'):
     status, data = request(anonymous, path)
     assert status == 403 and set(data) == {'error'}
@@ -98,7 +99,10 @@ assert request(host, '/gater/action', settings)[0] == 403
 assert request(host, '/gater/config/action', settings, marker=False)[0] == 403
 assert request(host, '/gater/config/action', settings, origin='https://unrelated.example')[0] == 403
 assert request(host, '/gater/config/action', settings)[0] == 200
-assert request(host, '/gater/config/action', {'action': 'claim'})[0] == 403
+for action in ('claim', 'release', 'reassign', 'wallet-claim'):
+    assert request(host, '/gater/config/action', {'action': action})[0] == 403
+assert request(host, '/gater/wallet-challenge', {}, marker=False)[0] == 403
+assert request(host, '/gater/wallet-challenge', {}, origin='https://unrelated.example')[0] == 403
 status, before = request(host, '/gater/me')
 assert status == 200 and not before['live']
 member_view(before)

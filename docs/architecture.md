@@ -22,7 +22,7 @@ The delivery adapter is deliberately absent in this version. A future Tlon adapt
 
 `desk/sur/gater.hoon` defines collections, ship owners, NFT owners and transfer generations, exclusive claims, managed seats/roles, suppression, an effect queue, source health/epochs/coverage, observation times, checkpoints, and the state revision. Gall serializes updates. Claim/release requests include the state revision so simultaneous browser requests cannot both overwrite the same version. The explicit v0→v1 migration preserves fixture associations; legacy non-fixture claims lack provenance and require a new claim.
 
-An asset is `[collection-id token-id]`; its configuration fixes chain and contract. Token IDs are full uint256 values serialized as decimal strings. A ship must be an Azimuth-sized identity with the same nonzero address as the token owner. A claim records its owner so a changed owner invalidates it. Claiming first clears that ship's other token in the collection, then replaces the target token's association in the same transition.
+An asset is `[collection-id token-id]`; its configuration fixes chain and contract. Token IDs are full uint256 values serialized as decimal strings. A ship must be an Azimuth-sized identity with the same nonzero address as the token owner. A claim records its owner so a changed owner invalidates it. Ordinary claiming cannot displace another ship. The linked eligible ship can explicitly reassign its NFT to an eligible target with no other claim in that collection. A recipient can instead authorize takeover with the current owner wallet’s signature. Self-directed claims clear that ship’s previous token in the collection atomically, preserving one-to-one mapping.
 
 Desired roles are unioned by group/ship across collections. Only roles tracked in Gater's `applied` map are considered for revocation; only `managed` seats are eligible for removal. A broad invite without a claim can retain membership while eligible; a lost claim removes its previously managed access by default. These maps currently serve the reducer and tests; populating them from observed Tlon state is unfinished.
 
@@ -48,7 +48,8 @@ The host serves three separate pages and two API surfaces:
 | --- | --- |
 | `/gater`, `/gater/landing.js`, `/gater/style.css` | Public landing page, EAuth form and shared stylesheet |
 | `/gater/claim`, `/gater/claim.js` | Verified ship session; secondary claim page after login |
-| `GET /gater/me`, `POST /gater/action` | Verified ship session; holdings and claim/release only |
+| `GET /gater/me`, `POST /gater/action` | Verified ship session; holdings, claims and authorized reassignment |
+| `POST /gater/wallet-challenge` | Verified eligible receiving ship; exact wallet authorization message, no state mutation |
 | `/gater/config`, `/gater/config.js` | Authenticated local host only; configuration page |
 | `GET /gater/config/state`, `POST /gater/config/action` | Authenticated local host only; settings, collection policies, ownership input and proposed actions |
 
@@ -56,7 +57,15 @@ The public page initiates `/~/login` EAuth with `/gater/claim` as the return pat
 
 Eyre delivers the remote authenticated ship as `src.bowl`; its `authenticated` flag is true only for local host sessions. Anonymous Eyre identities are comet-sized, which protected member routes reject. Host routes require both the host source ship and the authenticated flag. This distinction is covered by unit tests and a real EAuth handshake between local fake ships. Expiry and deployment reverse-proxy behavior remain separate acceptance checks.
 
-Remote ships can only claim/release as themselves. The member endpoint refuses host actions even from the host; the configuration endpoint refuses claim/release actions. Group/role/configuration and ownership input require the host identity. POSTs require a same-origin Origin/Host pair and `X-Gater: 1`. Responses are uncached; each page has a restrictive content security policy and inserts text with DOM `textContent`. There are no wallet or RPC credentials in the UI.
+Remote ships claim/release as themselves. A linked eligible ship can explicitly transfer its own association to another eligible ship. Wallet-authorized takeover always targets the authenticated receiving ship. The member endpoint refuses host actions even from the host; the configuration endpoint refuses all claim/reassignment actions. Group/role/configuration and ownership input require the host identity. POSTs require a same-origin Origin/Host pair and `X-Gater: 1`. Responses are uncached; each page has a restrictive content security policy and inserts text with DOM `textContent`. Wallet private keys remain in the wallet; the page receives only the selected address and signature. RPC credentials never enter the UI.
+
+## Reassignment signatures
+
+The current linked eligible ship can use `reassign` to name an eligible recipient. It cannot clear another ship's existing claim in that collection; that recipient must release it first. The receiving ship can instead use `wallet-claim`, with its EAuth identity fixed by Eyre, and an EIP-191 `personal_sign` signature from the current NFT owner. Ordinary `claim` refuses an occupied NFT even when the claimant is the host.
+
+The server reconstructs the exact message; it never trusts client-supplied message text, owner or destination fields. The message binds protocol version, host ship, configured public URL, chain, contract, collection, token, current owner, previous/receiving ships, revision, transfer generation and expiry. The current state revision is a persisted single-use authorization nonce: successful assignment increments it, and replay fails. Expiry is at most five minutes. Source freshness, eligibility and suppression are rechecked at commit. Refreshing an index can invalidate a pending signature before its expiry.
+
+The Gall verifier uses the kernel's Keccak and secp256k1 primitives, validates 65-byte signatures, permits recovery IDs 0/1 or 27/28, enforces low-s and scalar ranges, and catches invalid recovery. Verification needs no RPC. This first verifier supports regular Ethereum key wallets. ERC-1271 contract wallets need a separate chain-aware adapter; they are not accepted merely because a supplied signer claims to represent them. See [EIP-191](https://eips.ethereum.org/EIPS/eip-191) and [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271).
 
 ## Planned Tlon adapter
 

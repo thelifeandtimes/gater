@@ -53,6 +53,7 @@
     %'/gater/style.css'      %style
     %'/gater/me'             %me
     %'/gater/action'         %action
+    %'/gater/wallet-challenge'  %wallet-challenge
     %'/gater/config/state'   %config-state
     %'/gater/config/action'  %config-action
   ==
@@ -62,14 +63,14 @@
   ?:  ?=(?(%landing %landing-js %style) target)  200
   ?:  ?=(?(%config %config-js %config-state %config-action) target)
     ?:((host-session req who host) 200 403)
-  ?:  ?=(?(%claim %claim-js %me %action) target)
+  ?:  ?=(?(%claim %claim-js %me %action %wallet-challenge) target)
     ?:((signed-in req who host) 200 401)
   404
 ++  allowed-action
   |=  [target=@tas jon=json]
   ^-  ?
   =/  action  (str:j jon 'action')
-  ?:  =(target %action)  |(=(action 'claim') =(action 'release'))
+  ?:  =(target %action)  ?=(?(%claim %release %reassign %wallet-claim) action)
   &(=(target %config-action) ?=(?(%configure %settings %owners %nfts %snapshot %source-error %suppress %unsuppress) action))
 ++  redirect
   |=  location=@t

@@ -25,8 +25,11 @@
 ?>  ?=(%& -.first)
 =/  claimed  p.first
 ?>  =(%admit kind.operation:(~(got by effects:(reconcile claimed now)) 1))
-~|  %sibling-takeover
+~|  %unsigned-sibling-takeover-denied
 =/  second  (claim-token claimed now ~nec [%example 7] 1)
+?>  ?=(%| -.second)
+~|  %linked-ship-can-transfer
+=/  second  (reassign claimed now ~zod ~nec [%example 7] 1)
 ?>  ?=(%& -.second)
 =/  replaced  p.second
 ?>  =(who:(~(got by claims.replaced) [%example 7]) ~nec)
@@ -88,4 +91,4 @@
 ?>  =(`0x1 (~(get by owners) ~nec))
 ?>  =(`0x2 (~(get by owners) ~bud))
 ?>  !(~(has by owners) ~wes)
-(pure:m !>([%gater-policy-tests 18 %passed]))
+(pure:m !>([%gater-policy-tests 19 %passed]))

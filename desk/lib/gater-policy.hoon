@@ -57,14 +57,31 @@
 ++  claim-token
   |=  [st=state now=@da who=ship key=asset expected=@ud]
   ^-  (each state @t)
+  ?^  cl=(~(get by claims.st) key)
+    ?.  =(who who.u.cl)
+      [%| 'This NFT is already linked. Ask the linked ship to transfer it, or authorize with the owner wallet.']
+    (assign-token st now who key expected)
+  (assign-token st now who key expected)
+++  reassign
+  |=  [st=state now=@da actor=ship target=ship key=asset expected=@ud]
+  ^-  (each state @t)
+  ?~  cl=(~(get by claims.st) key)  [%| 'There is no association to transfer.']
+  ?.  &(=(actor who.u.cl) (eligible st actor key))
+    [%| 'Only the currently linked eligible ship can transfer this association.']
+  ?.  (levy ~(tap by claims.st) |=([old=asset cl=claim] |(!=(collection.old collection.key) !=(target who.cl) =(actor target))))
+    [%| 'The receiving ship must release its existing claim before accepting a transfer.']
+  (assign-token st now target key expected)
+++  assign-token
+  ::  Internal commit gate. Call only after claim/reassignment authorization.
+  |=  [st=state now=@da who=ship key=asset expected=@ud]
+  ^-  (each state @t)
   ?.  =(expected revision.st)  [%| 'State changed. Refresh and try again.']
   ?.  (~(has by collections.st) collection.key)  [%| 'Unknown collection.']
   ?.  (fresh st now collection.key)  [%| 'Ownership data is stale. Try again after synchronization.']
   ?.  (eligible st who key)  [%| 'This ship and NFT must have the same owner.']
   =/  cfg  (~(got by collections.st) collection.key)
   ?:  (~(has in suppressed.st) [group.cfg who])  [%| 'Membership is suppressed by the host.']
-  ::  Siblings may replace an occupied claim. Remove the actor's previous token
-  ::  in this collection in the same Gall transition; never hold two.
+  ::  Remove the destination ship's previous token in the same transition.
   =.  claims.st
     %-  ~(gas by *(map asset claim))
     %+  skim  ~(tap by claims.st)

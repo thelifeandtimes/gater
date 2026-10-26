@@ -9,7 +9,7 @@
 1. Match an Urbit ID's effective Azimuth owner to NFT ownership on Ethereum (`1`) or Base (`8453`).
 2. On recognition, propose a DM containing the claim-page link by default. A collection can instead invite all eligible ships or do nothing.
 3. A ship signs into the host's Eyre page using EAuth and claims a specific NFT. Existing membership is not required.
-4. One NFT supports one ship; one ship may claim one NFT per collection on this host. An eligible sibling can replace an occupied claim atomically.
+4. One NFT supports one ship; one ship may claim one NFT per collection on this host. Replacing an occupied claim requires approval from the linked ship or a signature from the current NFT owner wallet. Shared ownership alone is insufficient.
 5. The claim drives the managed role and admission. Losing the last entitlement removes the role **and membership by default**; retaining membership is configurable. Other valid claims supporting the same role/group are considered before removal.
 
 An address with three planets and one NFT can therefore produce three introductory DMs, but only one active association. No wallet transaction or NFT transfer is involved.

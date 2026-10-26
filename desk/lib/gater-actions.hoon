@@ -1,17 +1,23 @@
 /-  *gater
-/+  j=gater-json, policy=gater-policy
+/+  j=gater-json, policy=gater-policy, wallet=gater-wallet
 |%
 ++  act
   |=  [st=state now=@da who=ship host=ship jon=json]
   ^-  (each state @t)
   =/  action  (str:j jon 'action')
-  ?:  |(=(action 'claim') =(action 'release'))
+  ?:  ?=(?(%claim %release %reassign %wallet-claim) action)
     ?~  col=(slaw %tas (str:j jon 'collection'))  [%| 'Invalid collection.']
     ?~  token=(uint:j jon 'token')  [%| 'Invalid token ID.']
     ?.  (lth u.token (bex 256))  [%| 'Invalid token ID.']
     ?~  revision=(uint:j jon 'revision')  [%| 'Missing state revision.']
     ?:  =(action 'claim')
       (claim-token:policy st now who [u.col u.token] u.revision)
+    ?:  =(action 'reassign')
+      ?~  target=(slaw %p (str:j jon 'target'))  [%| 'Provide the receiving ship.']
+      (reassign:policy st now who u.target [u.col u.token] u.revision)
+    ?:  =(action 'wallet-claim')
+      ?~  expires=(uint:j jon 'expires')  [%| 'Missing signature expiry.']
+      (claim:wallet st now who host [u.col u.token] u.revision u.expires (str:j jon 'signature'))
     (release:policy st who [u.col u.token] u.revision)
   ?.  =(who host)  [%| 'This action is only available to the host.']
   =/  from-chain  =(action %snapshot)

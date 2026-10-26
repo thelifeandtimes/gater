@@ -69,6 +69,7 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 python scripts/check.py /tmp/gater-dev-nec
 python scripts/check.py /tmp/gater-dev-nec --file tests/actions.hoon
 python scripts/check.py /tmp/gater-dev-nec --file tests/sources-actions.hoon
+python scripts/check.py /tmp/gater-dev-nec --file tests/wallet-actions.hoon
 node --check desk/web/landing.js
 node --check desk/web/claim.js
 node --check desk/web/config.js
@@ -88,10 +89,28 @@ urbit -F zod -c /tmp/gater-eauth-zod -b 127.0.0.1 --http-port 8191 --no-dock
 python scripts/eauth_smoke.py /tmp/gater-dev-nec /tmp/gater-eauth-zod
 ```
 
-This uses normal HTTP login/approval/callbacks and Ames endpoint discovery. It verifies remote identity, host-only boundaries, sibling replacement, actor binding, restoration, logout and rejection. Use fixture token 8 unclaimed or claimed by the host, with no other remote claim. A newly published endpoint may need to cross the installed Eyre discovery cache's five-minute time boundary before its first lookup succeeds. A 503 at that point is not a Gater authorization failure. Server-side expiry, callback replay and public reverse proxies still need dedicated tests.
+This uses normal HTTP login/approval/callbacks and Ames endpoint discovery. It verifies remote identity, host-only boundaries, unsigned takeover denial, linked-ship transfer, actor binding, restoration, logout and rejection. Use fixture token 8 unclaimed or claimed by the host, with no other remote claim. A newly published endpoint may need to cross the installed Eyre discovery cache's five-minute time boundary before its first lookup succeeds. A 503 at that point is not a Gater authorization failure. Server-side expiry, callback replay and public reverse proxies still need dedicated tests.
+
+## Authorize an occupied claim
+
+The linked ship can expand **Transfer #… to another ship**, enter the receiving Urbit ID, and approve. The recipient must be eligible and must have no other claim in that collection. The linked ship can still release an association normally; an unclaimed NFT is available to eligible ships without a wallet signature.
+
+An eligible receiving ship can instead select **Authorize with owner wallet**, review the exact message, and use an injected Ethereum wallet's `personal_sign`, or paste a signature made over that exact message. This signs an association change only; it does not send a transaction. The verifier supports regular Ethereum key wallets, not ERC-1271 contract wallets. A wallet can sign on a separate device; the receiving ship submits the signature through its EAuth session.
+
+Signatures expire within five minutes and become invalid after a state revision or signed field changes. Refresh to request a new message after a conflict. Keep the configured public host URL stable. A successful use increments the revision and cannot be replayed. No new state schema or claim reset is needed for this authorization upgrade.
+
+To run the independent wallet integration test, install its test-only dependency in a temporary virtual environment (the app itself has no new Python dependency):
+
+```sh
+python -m venv /tmp/gater-wallet-tests
+/tmp/gater-wallet-tests/bin/pip install -r tests/requirements-wallet.txt
+/tmp/gater-wallet-tests/bin/python scripts/wallet_smoke.py /tmp/gater-dev-nec /tmp/gater-eauth-zod
+```
+
+This test uses publicly known private key 1 and invented ownership on the fake ships. Never fund that test address. It verifies denial, owner signature recovery, recipient/token/expiry binding, replay protection and linked-ship restoration, then restores the ownership fixtures and prior associations. The browser wallet extension itself is not automated by this test.
 
 ## JSON actions
 
-`configure`, `settings`, `owners` (fixture), `nfts` (fixture), `snapshot` (indexer), `source-error`, `suppress` and `unsuppress` require the host identity and use `POST /gater/config/action`. `claim` and `release` use `POST /gater/action`, taking a collection and decimal-string token/revision. Successful requests return the appropriate host or member view; rejected requests preserve state. Both endpoints require same-origin headers. Gall JSON pokes retain host/ship authorization.
+`configure`, `settings`, `owners` (fixture), `nfts` (fixture), `snapshot` (indexer), `source-error`, `suppress` and `unsuppress` require the host identity and use `POST /gater/config/action`. `claim`, `release`, `reassign` and `wallet-claim` use `POST /gater/action`, taking a collection and decimal-string token/revision. `reassign` additionally takes `target`; only the linked eligible ship may call it. `wallet-claim` additionally takes `expires` and a 65-byte hex `signature`; the receiving ship is always the authenticated actor. `POST /gater/wallet-challenge` returns the exact message, expiry, revision and required owner address for an eligible signed-in recipient. It uses the same authentication and CSRF checks and does not change state. Successful requests return the appropriate host or member view; rejected requests preserve state. Both endpoints require same-origin headers. Gall JSON pokes retain host/ship authorization.
 
 The host-only Gall scry `/x/state` returns configuration and proposed effects. These are not Tlon delivery receipts. See [verification](verification.md) and [remaining acceptance checks](acceptance-tests.md).

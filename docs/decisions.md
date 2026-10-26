@@ -1,6 +1,6 @@
 # Decisions
 
-Updated 2026-10-25 from the owner's follow-up.
+Updated 2026-10-26: the owner explicitly replaced sibling takeover with the stricter authorization rule.
 
 | Topic | Decision |
 | --- | --- |
@@ -8,13 +8,13 @@ Updated 2026-10-25 from the owner's follow-up.
 | Default recognition action | DM each eligible associated ship with configurable text and a claim link |
 | Other recognition actions | Invite all eligible ships to the configured group, or do nothing |
 | Claim timing | Claim before joining; the claim should trigger admission and the managed role |
-| Replacement | Any currently eligible sibling ship may replace an occupied claim |
+| Replacement | Only the currently linked eligible ship, or the current NFT owner wallet with a signature, may authorize reassignment |
 | Eligibility loss | Remove managed role and membership by default; configurable membership retention |
 | Scope | One NFT per ship per collection, one ship per NFT, on this host |
 | Identity | Effective Azimuth owner, including Azimuth L2; not management/spawn proxy |
 | Collection identity | Chain ID plus contract address; short config ID is an alias |
 | Initial standard | ERC-721; Ethereum mainnet and Base mainnet |
-| Authorization | EAuth ship control and common ownership; no wallet signature for sibling replacement |
+| Authorization | EAuth and common ownership for claims; occupied claims additionally require linked-ship approval or wallet signature |
 | Source outage | Freeze grants and destructive reconciliation; preserve last known state, indicate staleness |
 | Source rebuild or continuity gap | Require new claims when ownership continuity cannot be established; ordinary RPC failures preserve claims |
 | NFT ingestion | Supported external indexer with explicit finalized checkpoints and discovery coverage; native Iris remains optional |
@@ -23,7 +23,7 @@ Updated 2026-10-25 from the owner's follow-up.
 
 Recognition does not itself reserve an NFT. `none` suppresses outreach, not claims or entitlement reconciliation. A replacement revokes the old association's access unless another valid entitlement supports it. Multiple collections managing one group must agree on its membership-loss setting.
 
-The current implementation has one group/role destination per collection configuration. One collection feeding multiple groups is a planned schema extension. Independent hosts do not share a global mapping. Sibling replacement is last-valid-revision-wins: siblings can contest an association, so a later cooldown or host lock may be useful. There is no wallet challenge in this first pass.
+The current implementation has one group/role destination per collection configuration. One collection feeding multiple groups is a planned schema extension. Independent hosts do not share a global mapping. Unsigned sibling takeover is rejected, including requests from the host acting as a claimant. The linked ship can transfer to an eligible ship with no other claim in that collection. Alternatively, the receiving ship signs in with EAuth and submits the current owner wallet’s signature over a five-minute, revision-bound message. Regular Ethereum key wallets are supported; ERC-1271 contract wallets require a future adapter. Existing associations remain intact when upgrading.
 
 ## Inputs needed for a live pilot
 
