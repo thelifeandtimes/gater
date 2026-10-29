@@ -2,6 +2,8 @@
 
 For a live host, use the [installation guide](install.md) and [audited delivery guide](production-delivery.md). This page covers disposable development piers and the fake-only test transport. Vere and Python 3.10+ are required; the page has no npm/build dependency. The tested kernel target is `%zuse 408`.
 
+Start unreleased work on `develop` or a branch based on it. `master` is the default release branch. See [the branch and release workflow](../CONTRIBUTING.md).
+
 ## Boot and load
 
 From the repository root, boot a local fake ship:

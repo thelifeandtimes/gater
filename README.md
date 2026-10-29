@@ -6,7 +6,7 @@
 
 ## Install
 
-Follow the [installation and distribution guide](docs/install.md) for a new host, including the initial publisher setup on `~dister-dozzod-sarlev`.
+Install Gater on the ship hosting your Tlon group. On the computer running its pier, clone the release and load the desk. Replace the example pier path and `~your-ship` with your running ship's actual values:
 
 ```sh
 git clone --branch v0.1.0-gplv3 https://github.com/thelifeandtimes/gater.git
@@ -18,7 +18,11 @@ After the installer reports a successful compile, run `|install our %gater` in t
 
 **Run the NFT indexer and Azimuth audit worker as well.** The desk alone does not maintain verified eligibility. The [guide](docs/install.md#5-run-both-workers) includes the commands, private RPC setup and Nockmilio configuration. Claimants only need their browser and an eligible ship.
 
-Once the publisher has made the desk available on Urbit, other hosts can use `|install ~dister-dozzod-sarlev %gater` and then configure their own workers. The GitHub release does not itself publish the desk on that moon.
+If a publisher already distributes `%gater` over Urbit, you can instead install the desk with `|install ~publisher-ship %gater`, substituting that publisher's actual identity. You still need the release's workers and your own collection configuration. See the [complete installation and distribution guide](docs/install.md) for RPC setup, collection indexing and publishing a desk for others.
+
+## Development and releases
+
+`master` is the default branch for released code. `develop` contains work for the next release; create feature and fix branches from `develop` and merge them back there. Releases are promoted to `master` and tagged. See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch and release workflow.
 
 ## Behavior
 

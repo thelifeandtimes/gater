@@ -33,11 +33,11 @@ The `v0.1.0-gplv3` tag and refreshed archive include the GPLv3 license documents
 
 ## 2. Load and start the desk
 
-For the initial publisher installation on `~dister-dozzod-sarlev`, replace the pier path below with its actual absolute path. The pier must already be running.
+Replace the example pier path and `~your-ship` with the actual path and identity of the ship hosting your Tlon group. The pier must already be running.
 
 ```sh
-GATER_PIER=/absolute/path/to/dister-dozzod-sarlev
-GATER_SHIP='~dister-dozzod-sarlev'
+GATER_PIER=/absolute/path/to/pier
+GATER_SHIP='~your-ship'
 python3 scripts/install.py "$GATER_PIER" --init --live-ship "$GATER_SHIP"
 ```
 
@@ -69,7 +69,7 @@ Share `/gater/nockmilio` (or `/gater/<collection-id>`). Visitors authenticate wi
 
 ## 4. Provide private RPC credentials
 
-If the computer already has your shared Infura environment, load it in each worker terminal:
+Export `ETHEREUM_RPC_URL` and, for Base collections, `BASE_RPC_URL` from a private provider configuration file in each worker terminal. For example, if you use a shared Infura environment at `~/.config/infura/env`:
 
 ```sh
 set +x
@@ -94,24 +94,24 @@ python3 scripts/index.py \
   --config config/index.nockmilio.json \
   --state output/nockmilio-index.local.json \
   --rpc-env BASE_RPC_URL \
-  --pier /absolute/path/to/dister-dozzod-sarlev \
-  --live-ship '~dister-dozzod-sarlev' \
+  --pier /absolute/path/to/pier \
+  --live-ship '~your-ship' \
   --watch
 ```
 
-In another terminal, load the same private environment and start the Ethereum audit:
+Replace the pier path and ship identity in each worker command with the same values used for installation. In another terminal, load the same private environment and start the Ethereum audit:
 
 ```sh
 python3 scripts/audit_azimuth.py \
-  --pier /absolute/path/to/dister-dozzod-sarlev \
-  --live-ship '~dister-dozzod-sarlev' \
+  --pier /absolute/path/to/pier \
+  --live-ship '~your-ship' \
   --rpc-env ETHEREUM_RPC_URL \
   --anchor config/azimuth-anchor.json \
   --cache output/azimuth-audit.local.json \
   --watch
 ```
 
-The first runs fetch historical data and may take time and provider credits. Subsequent runs reuse saved checkpoints. Keep `output/` private and preserve it across worker restarts. Only one indexer may own a state file; run only one auditor for a given host/cache. In deployment, run these same commands under your process supervisor, as the pier owner, with the release directory as their working directory and the private environment loaded. The files in `ops/` are examples for the original local comet pilot, not services to install unchanged for your moon.
+The first runs fetch historical data and may take time and provider credits. Subsequent runs reuse saved checkpoints. Keep `output/` private and preserve it across worker restarts. Only one indexer may own a state file; run only one auditor for a given host/cache. In deployment, run these same commands under your process supervisor, as the pier owner, with the release directory as their working directory and the private environment loaded. The files in `ops/` are examples for the original local comet pilot; adapt their paths, target identity and dependencies for your deployment.
 
 Check the host page for **both** a fresh ownership audit and a healthy NFT source before testing claims. Stale or unavailable evidence pauses new delivery. The audit is pinned to the bootstrap in `config/azimuth-anchor.json`; if the ship has a different bootstrap, verification refuses to proceed. Review that bootstrap and its canonical block/digest before changing the pin—do not disable the check to force delivery. See [ownership trust and delivery recovery](production-delivery.md).
 
@@ -127,10 +127,10 @@ To make the loaded desk readable by the network, run on the publisher:
 |public %gater
 ```
 
-Once you have published it and the moon is reachable, another group host can install it with:
+Once the publisher's ship is reachable and its desk is public, another group host can install it with:
 
 ```hoon
-|install ~dister-dozzod-sarlev %gater
+|install ~publisher-ship %gater
 ```
 
-That command is for the future network distribution; publishing the GitHub release does not install or publish the desk on your moon. Each receiving host still needs its own community configuration and workers from this release. Ordinary visitors claiming membership need neither the desk nor the workers. Urbit tracks subsequent desk updates from the publisher; keep worker versions aligned with the distributed desk. See Urbit's [software distribution reference](https://docs.urbit.org/build-on-urbit/userspace/dist).
+Replace `~publisher-ship` with the actual identity distributing `%gater`. Publishing a GitHub release is separate from publishing a desk on Urbit. Each receiving host still needs its own community configuration and workers from this release. Ordinary visitors claiming membership need neither the desk nor the workers. Urbit tracks subsequent desk updates from the publisher; keep worker versions aligned with the distributed desk. See Urbit's [software distribution reference](https://docs.urbit.org/build-on-urbit/userspace/dist).
