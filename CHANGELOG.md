@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0 license supplement — 2026-10-29
+
+- License Gater's original code, including v0.1.0, under GNU GPL version 3 only (`GPL-3.0-only`).
+- Include the license, copyright notice and original third-party notices in the source package and Urbit desk.
+- Refresh the v0.1.0 download and checksum from the supplemental `v0.1.0-gplv3` tag. Application code and the original `v0.1.0` tag are unchanged.
+
 ## 0.1.0 — 2026-10-28
 
 First public release of Gater, an NFT membership manager for hosted Tlon groups.

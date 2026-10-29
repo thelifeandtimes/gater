@@ -6,4 +6,4 @@ The standard Urbit mark files under `desk/mar/` derive from Urbit; see [Urbit MI
 
 `desk/lib/default-agent.hoon`, `skeleton.hoon`, `server.hoon`, and the other standard marks were copied from the owner's local `omachan/desk` scaffolding. That repository carries Fang's MIT notice, reproduced in [licenses/fang-MIT.txt](licenses/fang-MIT.txt). They are standard agent/HTTP/mark support code, not Gater's policy implementation.
 
-No license has yet been selected for Gater's original code. These notices preserve the vendored sources' terms; they do not select a project-wide license.
+Gater's original code, including v0.1.0, is licensed under GNU GPL version 3 only (`GPL-3.0-only`); see [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT). The vendored sources retain the notices and licenses listed above. Copies of the full third-party notices are included in `desk/third-party-notices.txt` for Urbit distribution.

@@ -9,7 +9,7 @@
 Follow the [installation and distribution guide](docs/install.md) for a new host, including the initial publisher setup on `~dister-dozzod-sarlev`.
 
 ```sh
-git clone --branch v0.1.0 https://github.com/thelifeandtimes/gater.git
+git clone --branch v0.1.0-gplv3 https://github.com/thelifeandtimes/gater.git
 cd gater
 python3 scripts/install.py /absolute/path/to/pier --init --live-ship '~your-ship'
 ```
@@ -47,3 +47,7 @@ The public entry page is `/gater`. EAuth returns the visitor to `/gater/claim`, 
 Use a disposable test pier first. RPC credentials stay in environment variables; they are never included in the browser, claim URLs, or committed configuration. No Infura key is needed to run the fixture demo.
 
 Ownership verification trusts RPC responses and the explicitly pinned Urbit bootstrap. This release supports reviewed ERC-721 collections, not ERC-1155 or ERC-1271 contract-wallet signatures. Read the [trust boundary and recovery behavior](docs/production-delivery.md) before enabling a community. Third-party code and its licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## License
+
+Gater's original code, including v0.1.0, is licensed under **GNU GPL version 3 only** (`GPL-3.0-only`). See [LICENSE](LICENSE) and [COPYRIGHT](COPYRIGHT). Vendored code retains its original notices and licenses. The `v0.1.0-gplv3` tag and refreshed v0.1.0 download add license documentation to the original release; application code is unchanged. License documents are also included in `desk/` for Urbit distribution.

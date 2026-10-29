@@ -1,0 +1,20 @@
+Gater — NFT-based membership for hosted Tlon groups on Urbit
+Copyright (C) 2026 thelifeandtimes and Gater contributors
+
+Gater's original code, including the v0.1.0 release, is licensed under version
+3 of the GNU General Public License only (SPDX: GPL-3.0-only).
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of version 3 of the GNU General Public License as published by the
+Free Software Foundation.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+The full license is in LICENSE in the source repository and license.txt in the
+Urbit desk. Vendored code retains the original notices and licenses reproduced
+in THIRD_PARTY_NOTICES.md and licenses/ in the source repository, and
+third-party-notices.txt in the desk.
+
+Source and contact: https://github.com/thelifeandtimes/gater

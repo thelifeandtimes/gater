@@ -17,7 +17,7 @@ Back up the pier before a first installation or upgrade, using your usual stoppe
 On the computer running the pier:
 
 ```sh
-git clone --branch v0.1.0 https://github.com/thelifeandtimes/gater.git
+git clone --branch v0.1.0-gplv3 https://github.com/thelifeandtimes/gater.git
 cd gater
 ```
 
@@ -28,6 +28,8 @@ sha256sum --check SHA256SUMS
 tar -xzf gater-0.1.0.tar.gz
 cd gater-0.1.0
 ```
+
+The `v0.1.0-gplv3` tag and refreshed archive include the GPLv3 license documents selected after the initial publication. Application code is identical to the original `v0.1.0` tag. Keep `desk/license.txt`, `desk/copyright.txt` and `desk/third-party-notices.txt` with the desk when distributing it.
 
 ## 2. Load and start the desk
 
