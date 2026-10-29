@@ -89,6 +89,17 @@ Update through your publisher, or check out `v0.2.1`, rerun the source loader wi
 
 Check that the configuration page reports current Azimuth verification and a current finalized checkpoint for each collection. Test EAuth, claim, invitation acceptance, and release with a consenting participant. Review delivery receipts. A release revokes managed roles and, by default, managed membership; independent roles/membership protections still apply.
 
-To distribute your installed desk through Urbit, use the normal publisher workflow (`|commit %gater` if using a filesystem mount, then `|public %gater`). Recipients run `|install ~your-publisher-ship %gater` and configure their own RPC credentials in their own host UI. Credentials are Gall state and are not distributed with Clay desk source.
+After loading v0.2.1 or later, revive the desk and publish it through Treaty in Dojo:
+
+```hoon
+|revive %gater
+:treaty|publish %gater
+```
+
+If using a filesystem mount, run `|commit %gater` first. The source loader already commits through Clay, so it does not need a separate `|commit`.
+
+Treaty reads `/desk/docket-0` to advertise the app in Landscape and makes the desk publicly readable. Gater includes this file and its mark/library dependencies starting in v0.2.1. If publication fails with a trace ending in `/desk/docket-0`, run `+tree /=gater=` and check that `/desk/docket-0`, `/mar/docket-0/hoon`, `/lib/docket/hoon` and `/sur/docket/hoon` are present. Reload the complete v0.2.1 desk if they are missing. A running agent in `+vats` does not establish that Docket metadata is installed. See the [Urbit publishing guide](https://docs.urbit.org/build-on-urbit/userspace/dist/software-distribution#publish).
+
+`|public %gater` alone permits direct desk installation but does not add a Treaty catalog listing. Recipients can find the published app under your ship in Landscape, or run `|install ~your-publisher-ship %gater`, then configure their own RPC credentials in their own host UI. Credentials are Gall state and are not distributed with Clay desk source.
 
 Keep `desk/license.txt`, `desk/copyright.txt` and `desk/third-party-notices.txt` in the published desk. GitHub release publication does not itself update a livenet ship.
