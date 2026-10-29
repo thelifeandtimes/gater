@@ -1,5 +1,13 @@
 # Verification record
 
+## Landscape tile patch 0.2.1 — 2026-10-29 UTC
+
+On disposable fake `~nec` (Vere 4.6 / `%zuse 408`), imported the new Docket mark, library, type and metadata into the existing v0.2.0 desk, compiled Gater, and revived it. Docket automatically registered a ready `%site` charge named Gater, version 0.2.1, targeting `/gater/config`. Browser review confirmed the gate icon and that clicking the tile opens the authenticated host configuration in a new tab.
+
+A separate, empty test desk passed the complete 51-file source import and agent compile. Its decoded Docket noun matched the upgraded desk. HTTP checks confirmed the destination serves the signed-in host and rejects anonymous access. The three bundled Docket dependencies match `urbit/urbit` commit `50c7f5239610fc72263df7aa99b4d171cfe9d408` byte for byte; the tile reuses the existing published v0.2.0 SVG icon at an immutable public URL. No glob is required. The installer passed Python syntax checking.
+
+This patch changes desk metadata, the optional source loader and documentation; it does not change Gall application logic or saved state. No livenet ship was accessed or updated. The broader v0.2.0 verification below remains the application baseline.
+
 ## Native RPC release 0.2.0 — 2026-10-29 UTC
 
 The native release compiled on disposable fake `~nec` and a newly installed Gater desk on fake `~zod`, with Vere 4.6 / `%zuse 408`. All 196 Hoon scenarios (including 29 native RPC cases), 89 Python cases and 19 JavaScript cases passed. The source loader now converts `%txt` license/notice files to Clay’s line-list representation; the complete 47-file import and agent compile passed.

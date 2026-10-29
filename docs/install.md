@@ -1,4 +1,4 @@
-# Install Gater 0.2.0
+# Install Gater 0.2.1
 
 Gater runs on the ship hosting the Tlon group. Eyre serves the UI; Gall timers and Iris maintain verified Ethereum and Base ownership. **No host environment variables, Python workers, or external background services are needed to run it.**
 
@@ -18,23 +18,23 @@ If a publisher distributes `%gater`, use its actual identity in Dojo:
 |install ~publisher-ship %gater
 ```
 
-Open `/gater/config` on your ship’s web host and sign in as the host. Gater uses direct Eyre URLs, with no Landscape tile or JavaScript build step.
+Click the **Gater** tile in Landscape. It opens `/gater/config` on your ship’s web host in a new tab; sign in as the host if prompted. Gater uses direct Eyre URLs, so no glob upload or JavaScript build step is needed. Visitor invite and claim links remain separate from this host tile.
 
 Alternatively, load the source release on the computer running your pier. This optional loader requires Python 3.10+ and `urbit` on `PATH`; these are installation tools, not Gater runtime dependencies.
 
 ```sh
-git clone --branch v0.2.0 https://github.com/thelifeandtimes/gater.git
+git clone --branch v0.2.1 https://github.com/thelifeandtimes/gater.git
 cd gater
 python3 scripts/install.py /absolute/path/to/pier --init --live-ship '~your-ship'
 ```
 
 Replace the path and ship identity. The loader verifies the running identity, creates the desk, imports files through Clay and compiles the agent while the desk is suspended. After `Compile complete`, run `|install our %gater` in Dojo. Without `--live-ship`, the tool accepts only disposable fake ships. For an existing desk, omit `--init`, then run `|revive %gater` after successful compilation.
 
-The [GitHub release](https://github.com/thelifeandtimes/gater/releases/tag/v0.2.0) also includes a source archive and `SHA256SUMS`:
+The [GitHub release](https://github.com/thelifeandtimes/gater/releases/tag/v0.2.1) also includes a source archive and `SHA256SUMS`:
 
 ```sh
 sha256sum --check SHA256SUMS
-tar -xzf gater-0.2.0.tar.gz
+tar -xzf gater-0.2.1.tar.gz
 ```
 
 ## 2. Save RPC access on the ship
@@ -73,13 +73,17 @@ Choose manual approval or pause delivery **before** configuring real ownership i
 ## 5. Upgrade from 0.1
 
 1. Pause delivery if you want to review the transition. Stop the v0.1 NFT and Azimuth worker processes/services and disable their automatic restart. Do not run legacy importers alongside native verification.
-2. Update the desk through your publisher, or load v0.2.0 source without `--init` and then `|revive %gater`.
+2. Update the desk through your publisher, or load v0.2.1 source without `--init` and then `|revive %gater`.
 3. Save RPC credentials in the host UI. Environment variables from the old worker host are not imported automatically.
 4. Review ownership coverage in each community. The Nockmilio preset is automatic; other event-based collections need their reviewed deployment configuration entered in the editor.
 5. Wait for native NFT and Azimuth verification. Existing collections, claims, themes, delivery settings and receipts migrate. A compatible verified NFT cursor and its transfer generations are carried forward, then all owners are rechecked. Changed code, conflicting finalized history or coverage changes stop verification rather than silently resetting claims.
 6. Resume delivery after checking source status and receipts.
 
 Keep old worker cache files only as optional operator backups. They are no longer used by the desk. Upgrading is a forward state migration; restore a complete pre-upgrade backup if rolling back to v0.1.
+
+### Upgrade from 0.2.0
+
+Update through your publisher, or check out `v0.2.1`, rerun the source loader without `--init`, and run `|revive %gater`. The new Landscape tile appears automatically; refresh Landscape if it was already open. RPC credentials, collections and claims are unchanged by this patch.
 
 ## 6. Verify and distribute
 

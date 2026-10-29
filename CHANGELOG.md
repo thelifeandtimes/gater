@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-10-29
+
+- Add a Gater Landscape tile with the existing gate icon, opening the host configuration at `/gater/config`.
+- Bundle Docket metadata and its standard Urbit dependencies so the tile travels with the published desk. No glob upload is needed.
+- Teach the source installer to decode Docket metadata through its MIME mark rather than importing source text as a typed noun.
+
 ## 0.2.0 — 2026-10-29
 
 - Run Ethereum/Base NFT indexing and finalized effective Azimuth verification natively in Gall through Iris, with persisted checkpoints, transfer generations, retries and freshness gates. No external workers or host environment variables are required.

@@ -1,4 +1,4 @@
-# Gater 0.2.0
+# Gater 0.2.1
 
 `%gater` is an Urbit Gall agent and Eyre claim page for NFT-based Tlon group access. It runs on the group host. Collections are configuration, not hard-coded application logic.
 
@@ -12,7 +12,7 @@ Install on the ship hosting your Tlon group. If a publisher distributes the desk
 |install ~publisher-ship %gater
 ```
 
-Then open **`/gater/config`** on your ship’s web host:
+Click the **Gater** tile in Landscape to open the host configuration. You can also open **`/gater/config`** on your ship’s web host:
 
 1. Under **RPC & ownership**, enter an Infura API key with Ethereum mainnet and Base enabled. Alternatively, enter separate HTTPS JSON-RPC endpoints. Ethereum is needed for Azimuth even when your NFTs are on Base.
 2. Save RPC settings. Gater stores the credentials on your ship and starts checking finalized chain state through Iris. No environment variables, Python workers, or background services are required.
@@ -24,7 +24,7 @@ Credentials are write-only in the UI. Blank fields keep saved values; explicit r
 To install from source instead:
 
 ```sh
-git clone --branch v0.2.0 https://github.com/thelifeandtimes/gater.git
+git clone --branch v0.2.1 https://github.com/thelifeandtimes/gater.git
 cd gater
 python3 scripts/install.py /absolute/path/to/pier --init --live-ship '~your-ship'
 ```

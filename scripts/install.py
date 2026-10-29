@@ -91,7 +91,12 @@ for file in sorted(selected, key=import_order):
         if mark == 'txt':
             # Clay's %txt noun is a list of lines, unlike %hoon/%html cords.
             value = f'(to-wain:format {value})'
-    changes.append(f'[{path} %mut %{mark} !>({value})]')
+    if mark == 'docket-0':
+        # The on-disk docket is Hoon clauses; its Clay noun is a typed docket.
+        # Use the bundled mark's MIME decoder after its dependencies are loaded.
+        changes.append(f'[{path} %mut %mime !>([/text/x-docket [(met 3 {value}) {value}]])]')
+    else:
+        changes.append(f'[{path} %mut %{mark} !>({value})]')
 for change in changes:
     source = '''=/  m  (strand ,vase)
 ;<  b=bowl:spider  bind:m  get-bowl

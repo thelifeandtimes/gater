@@ -1,0 +1,10 @@
+:~  title+'Gater'
+    info+'NFT membership and roles for hosted Tlon groups.'
+    color+0x27.633d
+    site+/gater/config
+    base+'gater'
+    image+'https://raw.githubusercontent.com/thelifeandtimes/gater/v0.2.0/desk/web/favicon.svg'
+    version+[0 2 1]
+    website+'https://github.com/thelifeandtimes/gater'
+    license+'GPL-3.0-only'
+==

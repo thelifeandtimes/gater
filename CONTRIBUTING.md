@@ -12,7 +12,7 @@ See the [development guide](docs/development.md) for disposable test piers, fixt
 
 ## Release process
 
-1. Finish and review the intended changes on `develop`. Update `VERSION`, `CHANGELOG.md` and installation/compatibility documentation for the release. Check that license files and third-party notices are included in both the source package and `desk/`.
+1. Finish and review the intended changes on `develop`. Update `VERSION`, the version in `desk/desk.docket-0`, `CHANGELOG.md` and installation/compatibility documentation for the release. Check that license files and third-party notices are included in both the source package and `desk/`.
 2. Run the relevant Python, JavaScript, Hoon and integration checks described in the development guide. Compile the desk on a disposable fake ship and record the results and any limits in the verification notes. Check the staged files for private runtime data and credentials.
 3. Merge the release-ready changes into `master`. Create an annotated `vMAJOR.MINOR.PATCH` tag at that commit. The tag identifies the exact released source.
 4. Build the source archive from that tag with `git archive`, include the desk, license documents and installation guide, and generate `SHA256SUMS`. Inspect the extracted package before uploading it with the GitHub release notes.
