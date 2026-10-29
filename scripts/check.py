@@ -17,6 +17,8 @@ if a.file.endswith('community.hoon'):
     libs += [('lib', 'gater-tlon'), ('lib', 'gater-community')]
 if a.file.endswith('wallet-actions.hoon'):
     libs += [('lib', 'gater-wallet')]
+if a.file.endswith('rpc.hoon'):
+    libs += [('lib', 'gater-rpc')]
 if a.file.endswith('audit.hoon'):
     libs += [('lib', 'gater-audit')]
 if a.file.endswith('tlon.hoon'):

@@ -22,8 +22,7 @@ use styled confirmation dialogs.
    host theme. Choose heading/body/mono families, optional hosted font files,
    spacing and corners. Hosted fonts need browser CORS support; installed fonts
    and family fallbacks remain available when a file cannot load.
-6. Save, then open or copy the invite link. Each collection still requires an
-   ownership indexer; the UI does not create RPC workers or store credentials.
+6. Save, then configure **RPC & ownership** with an Infura key or custom HTTPS endpoints. Choose the collection’s ownership discovery method and wait for native verification before sharing the invite link. Credentials stay in private Gall state and are never returned in UI responses. See [installation](install.md).
 
 Gater's general workspace reads `%settings` desk `omarchy-urbit-theme`, bucket
 `appearance`, entry `current`, schema version 1. It falls back to Talon's stable
@@ -35,7 +34,7 @@ to that ship's private settings.
 The public host URL is a saved Gater setting. Its picker now includes Eyre turf
 names, Eyre's EAuth origin, the browser origin, the saved value and a custom
 entry. Eyre's advertised origin is not proof that the Internet can reach it.
-The dedicated comet currently advertises only `http://127.0.0.1:8192`.
+Loopback origins only work on the host computer.
 
 ## Public flow
 
@@ -70,7 +69,7 @@ can be retried; uncertain requests can be rechecked without blind DM duplication
 
 Deletion removes Gater configuration, claims, ownership
 snapshots and unsent decisions. It preserves the Tlon group, roles and existing
-membership. Stop its external indexer separately. Group/role changes clear that
+membership. Native indexing for the deleted collection stops automatically. Group/role changes clear that
 collection's claims and preserve old Tlon access; the dialog states this.
 In-flight delivery blocks policy edits/deletion. Provisioning persists progress
 and reports partial failures instead of overwriting existing groups.
@@ -106,7 +105,7 @@ Logout cancels queued work so late responses cannot refill it. Direct image
 patterns need no token metadata cache. Failures never affect eligibility.
 
 The former bulk media worker, file cache, public metadata/image-cache endpoints
-and `import-media` action are removed. The `%7` save envelope omits artwork and
+and `import-media` action are removed. The `%9` save envelope omits artwork and
 discards `%4`/`%5` media during migration while preserving policy, branding, claims,
 audit and delivery state. Previously recorded metadata may remain in Urbit’s
 historical event log or existing backups; migration does not rewrite that history.

@@ -80,6 +80,9 @@ function openEditor(c = null) {
   const appearance=GaterCommunity.resolved(c?.brand||{});
   for (const key of brandKeys) field(key).value = key==='themeMode'?GaterCommunity.themeMode(c?.brand):key.startsWith('font')?GaterCommunity.fontOverride(c?.brand||{},key):appearance[key] || '';
   field('id').readOnly = !!c; field('contract').readOnly = !!c; field('chain').disabled = !!c;
+  const indexing = (state.rpc?.indexes || []).find(row => row.id === c?.id) || defaultIndex(c?.chain, c?.contract);
+  field('indexMode').value=indexing.mode; field('indexStart').value=indexing.start; field('indexReview').value=indexing.review;
+  indexingVisibility();
   $('role-id').value=''; $('role-name').value='';
   groupChoices(c?.group || '', c?.role || '');
   $('editor-title').textContent = c ? `Edit ${c.name || c.id}` : 'Create a gated community';
@@ -104,6 +107,12 @@ function hostChoices() {
   for (const url of rows) { const option=node('option',url + (url===location.origin ? ' · current browser' : '')); option.value=url; select.append(option); }
   const custom=node('option','Custom URL…'); custom.value=''; select.append(custom); select.value=rows.includes(current)?current:'';
 }
+function defaultIndex(chain, contract) {
+  return String(chain)==='8453' && contract?.toLowerCase()==='0x7465e492a183f16c0805e57262898c7bec11808a'
+    ? {mode:'events-supply',start:'52544634',review:'Reviewed Nockmilio ERC721A mint/transfer/burn history; see docs/nockmilio-verification.md.'}
+    : {mode:'enumerable',start:'0',review:''};
+}
+function indexingVisibility() { $('event-indexing').hidden=field('indexMode').value!=='events-supply'; }
 function render() {
   $('identity').textContent = `${state.ship} · host`;
   if (document.activeElement?.form !== $('settings')) {
@@ -111,6 +120,17 @@ function render() {
     $('settings').elements.azimuthAuto.value = String(state.azimuthAuto);
   }
   $('azimuth-status').textContent = state.ownershipAudit?.verified ? `Verified through Ethereum block ${state.ownershipAudit.height}. ${state.ownershipAudit.scope}.` : 'Waiting for a current, complete finalized Azimuth audit. Sending is paused.';
+  const bootstrap=state.bootstrap || {}, current=bootstrap.current;
+  $('bootstrap-status').textContent=current?`This ship: block ${current.height} · ${current.hash} · fingerprint ${current.digest}. Active anchor: block ${bootstrap.height}${bootstrap.retained?' (retained on this ship)':''}.`:'The ship’s Azimuth bootstrap is unavailable. Wait for Urbit ownership sync.';
+  $('trust-bootstrap').hidden=!current || Number(current.height)===0 || current.digest===bootstrap.digest;
+  const rpc=state.rpc || {};
+  $('rpc-status').textContent=`Infura key: ${rpc.infuraConfigured?'saved':'not set'} · Ethereum: ${rpc.ethereumConfigured?(rpc.ethereumCustom?'custom endpoint':'Infura'):'not configured'} · Base: ${rpc.baseConfigured?(rpc.baseCustom?'custom endpoint':'Infura'):'not configured'}.`;
+  const progress=rpc.progress;
+  const stages={chain:'checking network',head:'finding finality',checkpoint:'checking previous checkpoint',code:'checking contract',deployment:'checking deployment',supply:'checking supply',enumerable:'checking enumeration',enumerate:'discovering tokens',logs:'reading event history',blocks:'verifying event blocks',inputs:'verifying rollup transactions',owners:'verifying owners',finish:'rechecking finality',done:'saving verified state'};
+  const detail=!progress?'': ['owners','enumerate'].includes(progress.stage)?` · ${progress.remaining} token checks remaining`:
+    ['logs','blocks','inputs'].includes(progress.stage)?` · block ${Math.min(Number(progress.block),Number(progress.target))} / ${progress.target}`:'';
+  $('rpc-progress').textContent=progress?`Checking ${progress.collection} · ${stages[progress.stage] || progress.stage}${detail}.`:'Waiting for the next ownership check.';
+  $('rpc-errors').replaceChildren(...(rpc.errors || []).map(e=>node('p',`${e.collection}: ${e.message}`,'error')));
   hostChoices();
   const job = state.provisioning;
   $('provision-status').hidden = !job || job.phase === 'done';
@@ -149,7 +169,7 @@ function render() {
   if(!delivery.receipts?.length)receipts.append(node('p','No deliveries recorded.','muted'));
   const sources = $('sources'); sources.replaceChildren();
   for (const c of state.collections) {
-    const row = node('div',undefined,'effect'); row.append(node('strong',c.name || c.id),node('p',c.source ? `${c.source.healthy && c.fresh ? 'Current' : 'Claims paused'} · checkpoint ${c.checkpoint || 'none'} · ${c.source.supply} tokens` : 'No verified ownership import. Configure an indexer for this collection.','muted')); sources.append(row);
+    const row = node('div',undefined,'effect'); row.append(node('strong',c.name || c.id),node('p',c.source ? `${c.source.healthy && c.fresh ? 'Current' : 'Claims paused'} · checkpoint ${c.checkpoint || 'none'} · ${c.source.supply} tokens` : 'Waiting for the first verified checkpoint. Check RPC status above.','muted')); sources.append(row);
   }
   buttons();
 }
@@ -184,6 +204,7 @@ form.addEventListener('submit',(event)=>{event.preventDefault();run(async()=>{
   if (current && (current.group!==field('group').value || current.role!==field('role').value) && !await confirmAction('Change the group or role?', 'This clears this collection’s claims. Existing Tlon memberships and roles are kept.', 'Change association')) return;
   const data = Object.fromEntries(policyKeys.map((key)=>[key,field(key).value]));
   data.manualApproval=field('manualApproval').checked; data.removeMembership = data.removeMembership === 'true'; data.action='configure';
+  data.indexing={mode:field('indexMode').value,start:field('indexStart').value,review:field('indexReview').value.trim()};
   data.brand=Object.fromEntries(brandKeys.map((key)=>[key,field(key).value]));
   await api(data); dirty=false; await closeEditor(); notice('Community saved. Your invite and claim pages are ready.'); $('notice').scrollIntoView({behavior:'smooth',block:'center'});
 });});
@@ -216,3 +237,24 @@ $('delivery-recheck').addEventListener('click',()=>run(async()=>{await api({acti
 $('delivery-retry').addEventListener('click',()=>run(async()=>{if(!await confirmAction('Retry rejected action?','Gater will check whether the action is still needed and retry it with current ownership.','Retry action'))return;await api({action:'retry-delivery'});notice('Recovery requested. The receipt will confirm the result.');}));
 
 document.addEventListener('gater-theme',()=>{if(!$('editor').hidden)preview();});
+
+field('indexMode').addEventListener('change',indexingVisibility);
+for(const key of ['contract','chain']) field(key).addEventListener('change',()=>{
+  if(editing)return;
+  const indexing=defaultIndex(field('chain').value,field('contract').value.trim());
+  field('indexMode').value=indexing.mode;field('indexStart').value=indexing.start;field('indexReview').value=indexing.review;indexingVisibility();
+});
+$('rpc-settings').addEventListener('submit',event=>{
+  event.preventDefault(); const rpcForm=event.currentTarget;
+  run(async()=>{
+    const data=Object.fromEntries(new FormData(rpcForm));data.action='rpc-settings';
+    for(const key of ['clearInfura','clearEthereum','clearBase'])data[key]=rpcForm.elements[key].checked;
+    await api(data);rpcForm.reset();notice('RPC settings saved on this ship. Native ownership checks are starting.');
+  });
+});
+
+$('trust-bootstrap').addEventListener('click',()=>run(async()=>{
+  const snapshot=state.bootstrap?.current;if(!snapshot)return;
+  if(!await confirmAction('Trust this Urbit bootstrap?',`Use block ${snapshot.height}, hash ${snapshot.hash}, fingerprint ${snapshot.digest}, as the trusted starting state? Gater will verify the canonical block and all subsequent finalized events. Historical ownership before this block is trusted from Urbit. Existing claims must be released before changing this anchor.`,'Trust bootstrap'))return;
+  await api({action:'rpc-bootstrap',...snapshot});notice('Bootstrap trust anchor saved. Canonical ownership verification is starting.');
+}));

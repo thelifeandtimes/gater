@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 — 2026-10-29
+
+- Run Ethereum/Base NFT indexing and finalized effective Azimuth verification natively in Gall through Iris, with persisted checkpoints, transfer generations, retries and freshness gates. No external workers or host environment variables are required.
+- Add host-only, write-only Infura key and custom HTTPS endpoint settings, per-collection discovery settings, progress and sanitized provider errors.
+- Retain reviewed Urbit bootstrap snapshots on the ship; allow explicit host review of a different bootstrap through the configuration UI.
+- Migrate collections, claims, presentation settings and delivery receipts; carry compatible v0.1 verified NFT checkpoints forward and recheck owners.
+- Fix source installation of the desk’s license and notice text files.
+- Document network installation, native RPC setup, provider requirements, credential persistence and the v0.1 worker migration.
+
 ## 0.1.0 license supplement — 2026-10-29
 
 - License Gater's original code, including v0.1.0, under GNU GPL version 3 only (`GPL-3.0-only`).

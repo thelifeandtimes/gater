@@ -1,5 +1,5 @@
 /-  *gater
-/+  default-agent, server, web=gater-http, policy=gater-policy, actions=gater-actions, sources=gater-sources, wallet=gater-wallet, delivery=gater-delivery, j=gater-json, community=gater-community, presentation=gater-presentation, audit=gater-audit
+/+  default-agent, server, web=gater-http, policy=gater-policy, actions=gater-actions, sources=gater-sources, wallet=gater-wallet, delivery=gater-delivery, j=gater-json, community=gater-community, presentation=gater-presentation, audit=gater-audit, rpc=gater-rpc
 |%
 +$  card  card:agent:gall
 ++  pull-azimuth
@@ -36,12 +36,15 @@
 =|  ui=settings:community
 =|  proof=proof:audit
 =|  control=controls:delivery
+=|  native=store:rpc
 |_  =bowl:gall
 +*  this  .
     def   ~(. (default-agent this |) bowl)
     admin-view
       =/  view  (decorate:community (config-view:web st now.bowl our.bowl our.bowl) ui (registry:community bowl) our.bowl)
       ?>  ?=([%o *] view)
+      =.  p.view  (~(put by p.view) 'bootstrap' (bootstrap-info:rpc native bowl))
+      =.  p.view  (~(put by p.view) 'rpc' (status-json:rpc native))
       =.  p.view  (~(put by p.view) 'hostUrls' (hosts:presentation bowl))
       =.  p.view  (~(put by p.view) 'ownershipAudit' (view:audit proof now.bowl))
       =.  p.view  (~(put by p.view) 'delivery' (view:delivery transport))
@@ -68,7 +71,147 @@
       ?:  &((gth remaining 0) =(~ cards.result) ?=(~ active.log.result) !=(history.transport history.log.result))
         $(remaining (dec remaining), st next.result, transport log.result)
       [cards.result this(st next.result, transport log.result)]
+    native-wait
+      ^-  (quip card _this)
+      [~[[%pass /native-tick/(scot %da due.native) %arvo %b %wait due.native]] this]
+    native-failed
+      |=  message=@t
+      ^-  (quip card _this)
+      =/  current=store:rpc  native
+      ?~  work.current  [~ this]
+      =/  w  u.work.current
+      =/  key  ?:(=(kind.w %azimuth) %azimuth col.w)
+      =.  errors.native  (~(put by errors.native) key message)
+      =?  at.proof  =(kind.w %azimuth)  ~2000.1.1
+      ::  Keep the last committed checkpoint. A failed NFT read pauses claims;
+      ::  no partial result can prune claims or refresh verification timestamps.
+      =?  nft-sources.st  &(=(kind.w %nft) (~(has by nft-sources.st) col.w))
+        =/  src  (~(got by nft-sources.st) col.w)
+        (~(put by nft-sources.st) col.w src(healthy |))
+      =.  this  this(native native(sent |, serial +(serial.native)))
+      ?:  (gte attempts.w 5)
+        =.  this  this(native native(work ~, due (add now.bowl ~s1)))
+        native-wait
+      =.  w  w(attempts +(attempts.w))
+      =?  w  &(=(stage.w %logs) (gth window.w 1))
+        (log-request:rpc w(window (max 1 (div window.w 2))))
+      =.  this  this(native native(work `w, due (add now.bowl (mul ~s2 (bex attempts.w)))))
+      native-wait
+    native-pump
+      ^-  (quip card _this)
+      |-
+      =/  current=store:rpc  native
+      ?:  (lth now.bowl due.native)  native-wait
+      ?:  sent.native
+        =/  old-wire  /native-rpc/(scot %ud serial.native)
+        =^  cards  this  (native-failed 'RPC timed out. Retrying with bounded backoff; check provider availability and limits.')
+        [[[%pass old-wire %arvo %i %cancel-request ~] cards] this]
+      ?~  work.current
+        =/  todo=(list (unit @tas))
+          ?~  queue.native  [~ (turn ~(tap by collections.st) |=([id=@tas c=collection] `id))]
+          queue.native
+        ?>  ?=(^ todo)
+        =/  selected  i.todo
+        =.  queue.native  t.todo
+        =/  chain
+          ?~  selected  1
+          =/  c  (~(get by collections.st) u.selected)
+          ?~  c  0
+          chain.u.c
+        ?:  |(=(chain 0) =((endpoint:rpc native chain) '') &(?=(~ selected) !azimuth-auto.st))
+          =.  due.native  (add now.bowl ?:(?=(~ queue.native) ~m1 ~s1))
+          native-wait
+        =/  initialized
+          %-  mule
+          |.
+          ?:  ?=(^ selected)  [(start:rpc native st selected now.bowl) bootstrap.native]
+          =/  snap  ?~(bootstrap.native (snapshot-now:audit bowl) u.bootstrap.native)
+          ?>  =([number.id.snap hash.id.snap (shax (jam snap))] [height.anchor.native hash.anchor.native digest.anchor.native])
+          [(start:rpc native st selected now.bowl) `snap]
+        ?-  -.initialized
+          %|  =.  errors.native  (~(put by errors.native) ?~(selected %azimuth u.selected) 'Cannot initialize verification. Check collection configuration or the reviewed Azimuth bootstrap anchor.')
+              =.  due.native  (add now.bowl ?:(?=(~ queue.native) ~m1 ~s1))
+              native-wait
+          %&  =.  this  this(native native(work `-.p.initialized, bootstrap +.p.initialized))
+              $
+        ==
+      =/  w  u.work.current
+      =/  outdated
+        ?.  =(kind.w %nft)  |
+        =/  c  (~(get by collections.st) col.w)
+        ?~  c  &
+        |(!=([chain.u.c contract.u.c] [chain.w contract.w]) !=(opts.w (~(gut by indexes.native) col.w (default-options:rpc u.c))))
+      ?:  outdated
+        =.  this  this(native native(work ~, sent |, due (add now.bowl ~s1)))
+        native-wait
+      ?:  =(stage.w %done)
+        =/  committed
+          %-  mule
+          |.
+          ?:  =(kind.w %nft)
+            =/  result  (act:actions st now.bowl our.bowl our.bowl (snapshot-json:rpc w now.bowl))
+            ?>  ?=(%& -.result)
+            [p.result proof]
+          =/  snap  (need bootstrap.native)
+          ?>  =([number.id.snap hash.id.snap (shax (jam snap))] [height.anchor.native hash.anchor.native digest.anchor.native])
+          =/  result  (commit:audit st proof (replay:audit snap logs.w) now.bowl height.target.w hash.target.w digest.anchor.native)
+          ?>  ?=(%& -.result)
+          p.result
+        ?-  -.committed
+          %|  (native-failed 'Verified state could not be committed. Check the bootstrap anchor, collection coverage and checkpoint continuity.')
+          %&  =.  st  -.p.committed
+              =.  proof  +.p.committed
+              =?  caches.native  =(kind.w %nft)
+                (~(put by caches.native) col.w [target.w epoch.w code.w bootstrap.w tokens.w ?:(|((gth now.bowl (add checked.w ~h6)) (lth now.bowl checked.w)) now.bowl checked.w)])
+              =?  native  =(kind.w %azimuth)
+                native(audit-point target.w, audit-logs logs.w)
+              =.  errors.native  (~(del by errors.native) ?:(=(kind.w %azimuth) %azimuth col.w))
+              =.  this  this(native native(work ~, due (add now.bowl ?:(?=(~ queue.native) ~m1 ~s1))))
+              =.  st  (reconcile:policy st now.bowl)
+              =^  cards  this  dispatch
+              =^  waiting  this  native-wait
+              [(weld cards waiting) this]
+        ==
+      =/  url  (endpoint:rpc native chain.w)
+      ?:  =(url '')  (native-failed 'Configure an RPC endpoint for this network.')
+      =.  this  this(native native(serial +(serial.native), sent &, due (add now.bowl ~s45)))
+      =/  body  (en:json:html (envelope:rpc requests.w serial.native))
+      =/  request=request:http  [%'POST' url ~[['Content-Type' 'application/json']] `[(met 3 body) body]]
+      =^  cards  this  native-wait
+      [[[%pass /native-rpc/(scot %ud serial.native) %arvo %i %request request [0 0]] cards] this]
+    native-response
+      |=  response=client-response:iris
+      ^-  (quip card _this)
+      =/  current=store:rpc  native
+      ?~  work.current  [~ this]
+      ?:  ?=(%progress -.response)
+        ?:  (lte bytes-read.response 33.554.432)  [~ this]
+        =/  wire  /native-rpc/(scot %ud serial.native)
+        =^  cards  this  (native-failed 'RPC response exceeded the size limit. Use a smaller log range or a suitable provider.')
+        [[[%pass wire %arvo %i %cancel-request ~] cards] this]
+      ?:  ?=(%cancel -.response)  (native-failed 'RPC connection was cancelled. Retrying.')
+      ?.  =(200 status-code.response-header.response)
+        (native-failed 'RPC returned an HTTP error. Check credentials, supported networks and provider quotas.')
+      ?~  full-file.response  (native-failed 'RPC returned an empty response.')
+      ?:  (gth p.data.u.full-file.response 33.554.432)
+        (native-failed 'RPC response exceeded the size limit.')
+      =/  decoded  (de:json:html q.data.u.full-file.response)
+      ?~  decoded  (native-failed 'RPC returned invalid JSON.')
+      =/  issue  (provider-error:rpc u.decoded)
+      ?^  issue  (native-failed u.issue)
+      =/  parsed
+        %-  mule
+        |.
+        =/  json  u.decoded
+        =/  values  (results:rpc requests.u.work.current serial.native json)
+        (advance:rpc u.work.current values now.bowl)
+      ?-  -.parsed
+        %|  (native-failed 'RPC verification failed. Check chain ID, finalized data, contract coverage and provider limits. No partial state was accepted.')
+        %&  =.  this  this(native native(work `p.parsed, sent |, due (add now.bowl ~s1)))
+            native-wait
+      ==
 ++  on-init
+  =.  this  this(native native(sent |, serial +(serial.native), due (add now.bowl ~s1)))
   =.  wake.st  (add now.bowl ?:(enabled.transport ~s5 ~m1))
   =.  azimuth-watch.st  &(azimuth-watch.st (~(has by wex.bowl) [/azimuth our.bowl %azimuth]))
   =^  cards  st  (ensure-source st bowl)
@@ -77,13 +220,32 @@
   :_  this
   %+  weld  cards
   ^-  (list card)
-  :~  [%pass /eyre %arvo %e %connect [~ /gater] dap.bowl]
+  :~  [%pass /native-tick/(scot %da due.native) %arvo %b %wait due.native]
+      [%pass /eyre %arvo %e %connect [~ /gater] dap.bowl]
       [%pass /timer/(scot %da wake.st) %arvo %b %wait wake.st]
   ==
-++  on-save  !>([%7 st transport ui proof control])
+++  on-save  !>([%9 st transport ui proof control native])
 ++  on-load
   |=  old=vase
   =/  raw  !<(* old)
+  ?:  ?=([%9 *] raw)
+    =+  !<([tag=%9 saved=state saved-transport=ledger:delivery saved-ui=settings:community saved-proof=proof:audit saved-control=controls:delivery saved-native=store:rpc] old)
+    =.  st  saved
+    =.  transport  saved-transport
+    =.  ui  saved-ui
+    =.  proof  saved-proof
+    =.  control  saved-control
+    =.  native  saved-native
+    on-init
+  ?:  ?=([%8 *] raw)
+    =+  !<([tag=%8 saved=state saved-transport=ledger:delivery saved-ui=settings:community saved-proof=proof:audit saved-control=controls:delivery saved-native=store-0:rpc] old)
+    =.  st  saved
+    =.  transport  saved-transport
+    =.  ui  saved-ui
+    =.  proof  saved-proof
+    =.  control  saved-control
+    =.  native  (migrate-store:rpc saved-native)
+    on-init
   ?:  ?=([%7 *] raw)
     =+  !<([tag=%7 saved=state saved-transport=ledger:delivery saved-ui=settings:community saved-proof=proof:audit saved-control=controls:delivery] old)
     =.  st  saved
@@ -210,6 +372,40 @@
     ?.  (allowed-action:web target u.jon)
       [(give-simple-payload:app:server id (error:web 403 'This action is not available at this endpoint.')) this]
     =/  action  (str:j u.jon 'action')
+    ?:  =(action %rpc-bootstrap)
+      =/  existing=(map asset claim)  claims.st
+      ?:  ?=(^ existing)
+        [(give-simple-payload:app:server id (error:web 409 'Release existing NFT claims before changing the Azimuth bootstrap trust anchor.')) this]
+      =/  checked
+        %-  mule
+        |.
+        =/  snap  (snapshot-now:audit bowl)
+        ?>  &((gth number.id.snap 0) (gth hash.id.snap 0))
+        ?>  =(u.jon (pairs:enjs:format ~[action+s+'rpc-bootstrap' height+s+(decimal:j number.id.snap) hash+s+(hex-width:audit hash.id.snap 32) digest+s+(hex-width:audit (shax (jam snap)) 32)]))
+        snap
+      ?-  -.checked
+        %|  [(give-simple-payload:app:server id (error:web 409 'The displayed bootstrap changed or is unavailable. Refresh and review it again.')) this]
+        %&  =/  snap  p.checked
+            =/  cancel=(list card)
+              ?:(sent.native ~[[%pass /native-rpc/(scot %ud serial.native) %arvo %i %cancel-request ~]] ~)
+            =.  native  native(bootstrap `snap, anchor [number.id.snap hash.id.snap (shax (jam snap))], audit-point *header:rpc, audit-logs ~, work ~, queue ~, sent |, serial +(serial.native), due now.bowl)
+            =.  proof  *proof:audit
+            =^  cards  this  native-pump
+            [(weld cancel (weld cards (give-simple-payload:app:server id (response:web 200 admin-view)))) this]
+      ==
+    ?:  =(action %rpc-settings)
+      =/  result  (configure:rpc native u.jon now.bowl)
+      ?-  -.result
+        %|  [(give-simple-payload:app:server id (error:web 400 p.result)) this]
+        %&  =/  cancel=(list card)
+              ?:(sent.native ~[[%pass /native-rpc/(scot %ud serial.native) %arvo %i %cancel-request ~]] ~)
+            =.  native  p.result
+            =.  st  st(azimuth-auto &, fixtures |)
+            =.  at.proof  ~2000.1.1
+            =.  nft-sources.st  (~(urn by nft-sources.st) |=([key=@tas src=source] src(healthy |)))
+            =^  cards  this  native-pump
+            [(weld cancel (weld cards (give-simple-payload:app:server id (response:web 200 admin-view)))) this]
+      ==
     ?:  =(action %audit-azimuth)
       =/  result  (accept:audit st proof bowl u.jon)
       ?-  -.result
@@ -302,6 +498,13 @@
       ~
     ?^  binding-error
       [(give-simple-payload:app:server id (error:web 409 u.binding-error)) this]
+    =/  indexed-collection  (~(get by collections.st) (str:j u.jon 'id'))
+    =/  old-index  (~(gut by indexes.native) (str:j u.jon 'id') ?~(indexed-collection [%enumerable 0 ''] (default-options:rpc u.indexed-collection)))
+    =/  index-options  (parse-options:rpc (get:j u.jon 'indexing') old-index)
+    ?:  &(=(action %configure) ?=(%| -.index-options))
+      [(give-simple-payload:app:server id (error:web 400 p.index-options)) this]
+    ?:  &(=(action %configure) (~(has by caches.native) (str:j u.jon 'id')) ?=(%& -.index-options) !=(old-index p.index-options))
+      [(give-simple-payload:app:server id (error:web 409 'Index coverage is locked after verification. Create a new collection to review a different history.')) this]
     =/  branding  (get:j u.jon 'brand')
     =/  parsed  (parse-brand:community branding)
     ?:  &(=(action %configure) ?=(%| -.parsed))
@@ -311,7 +514,11 @@
     =/  result  (act:actions st now.bowl src.bowl our.bowl u.jon)
     ?-  -.result
       %|  [(give-simple-payload:app:server id (error:web 409 p.result)) this]
-      %&  =?  control  =(action %configure)
+      %&  =?  indexes.native  &(=(action %configure) ?=(%& -.index-options) ?=(^ (get:j u.jon 'indexing')))
+            (~(put by indexes.native) (str:j u.jon 'id') p.index-options)
+          =?  native  =(action %delete-collection)
+            native(indexes (~(del by indexes.native) (str:j u.jon 'id')), caches (~(del by caches.native) (str:j u.jon 'id')), errors (~(del by errors.native) (str:j u.jon 'id')))
+          =?  control  =(action %configure)
             =/  prefs  (~(gut by communities.control) (str:j u.jon 'id') *preferences:delivery)
             =.  prefs  prefs(manual (bool:j u.jon 'manualApproval' manual.prefs))
             =?  removal.prefs  ?=([%s *] (get:j u.jon 'removalMessage'))
@@ -351,6 +558,11 @@
 ++  on-arvo
   |=  [=wire =sign-arvo]
   ^-  (quip card _this)
+  ?:  =(/native-tick/(scot %da due.native) wire)  native-pump
+  ?:  ?=([%native-rpc @ ~] wire)
+    ?.  &(sent.native =(i.t.wire (scot %ud serial.native)))  [~ this]
+    ?.  ?=(%http-response +<.sign-arvo)  [~ this]
+    (native-response client-response.sign-arvo)
   ?:  ?=([%community-check @ ~] wire)
     ?~  work.ui  [~ this]
     ?.  =((scot %ud id.u.work.ui) i.t.wire)  [~ this]

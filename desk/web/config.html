@@ -27,6 +27,12 @@
               <label>Network<select name="chain"><option value="8453">Base</option><option value="1">Ethereum</option></select></label>
               <label>Contract address<input name="contract" pattern="0x[0-9a-fA-F]{40}" placeholder="0x…" required></label>
             </div></fieldset>
+            <fieldset><legend>Ownership indexing</legend>
+              <label>Discover tokens<select name="indexMode"><option value="enumerable">ERC-721 enumeration</option><option value="events-supply">Reviewed event history + total supply</option></select></label>
+              <p class="muted">Gater checks finalized ownership directly from this ship. Enumeration requires ERC721Enumerable. Event history requires every mint, transfer and burn to be represented in logs, with a working totalSupply(). Nockmilio’s reviewed settings are filled automatically.</p>
+              <div id="event-indexing"><label>Contract deployment block<input name="indexStart" inputmode="numeric" pattern="[0-9]+" value="0"></label><label>Coverage review<textarea name="indexReview" maxlength="2048" placeholder="Describe the reviewed mint, transfer and burn event coverage; include a source link."></textarea></label></div>
+              <p class="muted">Coverage settings are fixed after verification. Initial history checks can take several minutes; progress appears under RPC &amp; ownership.</p>
+            </fieldset>
             <fieldset><legend>Tlon group &amp; role</legend>
               <label>Group hosted by this ship<select name="group" required></select></label>
               <button id="create-group" type="button" class="quiet">Create group from collection ID</button>
@@ -69,13 +75,28 @@
         <p class="muted">Approvals apply to the exact action shown. Invitations appear in Tlon; the recipient still accepts. Membership results are checked on the host. DM receipts confirm submission to Tlon, not that the recipient has read the message.</p>
         <div id="outbox"></div><details><summary>Recent receipts</summary><div id="delivery-receipts"></div></details>
       </details>
-      <details><summary>Host settings</summary><form id="settings" class="grid"><label>Public host URL<select id="host-choice" aria-label="Suggested public host"><option value="">Custom URL</option></select><input name="baseUrl" type="url" required placeholder="https://your-ship.example"></label><label>Azimuth source<select name="azimuthAuto"><option value="true">Follow this ship’s ownership updates</option><option value="false">Use imported test ownership</option></select></label><button>Save host settings</button></form>
-      <p id="theme-status" class="muted"></p><p id="host-url-help" class="muted">Choose an Eyre-advertised address or enter your own public origin. The address in this browser is also offered; localhost is only reachable on this computer.</p></details><details><summary>Ownership sources</summary><p id="azimuth-status" class="muted"></p><div id="sources"></div></details>
+      <details id="rpc-panel" open><summary>RPC &amp; ownership</summary>
+        <p>Set an Infura API key for Ethereum mainnet and Base, or use your own HTTPS JSON-RPC endpoints. This ship runs all checks itself; no external worker or environment variables are needed.</p>
+        <form id="rpc-settings" autocomplete="off">
+          <label>Infura API key<input name="infuraKey" type="password" autocomplete="new-password" maxlength="128" placeholder="Leave blank to keep the saved key"></label>
+          <label class="check-label"><input name="clearInfura" type="checkbox">Remove saved Infura key</label>
+          <details><summary>Custom endpoints</summary><p class="muted">A custom endpoint overrides Infura for that network. It must support finalized blocks, historical logs and batch requests. Ethereum is required for Azimuth, including Base collections.</p>
+            <label>Ethereum mainnet HTTPS endpoint<input name="ethereumUrl" type="password" autocomplete="new-password" maxlength="2048" placeholder="https://…"></label><label class="check-label"><input name="clearEthereum" type="checkbox">Remove custom Ethereum endpoint</label>
+            <label>Base mainnet HTTPS endpoint<input name="baseUrl" type="password" autocomplete="new-password" maxlength="2048" placeholder="https://…"></label><label class="check-label"><input name="clearBase" type="checkbox">Remove custom Base endpoint</label>
+          </details>
+          <p class="muted">Credentials are stored privately in this ship’s Gall state and are never returned to these fields. Use HTTPS when accessing a remote host. Pier backups and Urbit event history also contain saved credentials; removing a key here does not erase that history. This is a provider API key, never a wallet key.</p>
+          <button type="submit">Save RPC settings</button>
+        </form>
+        <details><summary>Azimuth bootstrap trust</summary><p class="muted">Effective Urbit ownership starts from a trusted Urbit bootstrap snapshot, then Gater verifies every finalized Ethereum log and rollup input after it. This is not a verification of all history back to genesis. The release includes a reviewed anchor. If this ship has a different bootstrap, review the block and fingerprint below before explicitly trusting it. Changing anchors requires releasing existing claims first.</p><p id="bootstrap-status" class="mono small"></p><button id="trust-bootstrap" type="button" class="quiet" hidden>Trust this ship’s bootstrap</button></details>
+        <p id="rpc-status" role="status" aria-live="polite"></p><p id="rpc-progress" class="muted"></p><div id="rpc-errors"></div><p id="azimuth-status" class="muted"></p><div id="sources"></div>
+      </details>
+      <details><summary>Host settings</summary><form id="settings" class="grid"><label>Public host URL<select id="host-choice" aria-label="Suggested public host"><option value="">Custom URL</option></select><input name="baseUrl" type="url" required placeholder="https://your-ship.example"></label><label>Azimuth source<select name="azimuthAuto"><option value="true">Verify effective ownership using Ethereum RPC</option><option value="false">Use imported test ownership</option></select></label><button>Save host settings</button></form>
+      <p id="theme-status" class="muted"></p><p id="host-url-help" class="muted">Choose an Eyre-advertised address or enter your own public origin. The address in this browser is also offered; localhost is only reachable on this computer.</p></details>
     </section>
     <noscript><p>Enable JavaScript to manage your communities.</p></noscript>
     <footer><a href="/gater/claim">Your claims</a><a href="/gater">Public claim page</a></footer>
   </main>
-  <dialog id="confirm-delete"><form method="dialog"><h2>Delete this collection?</h2><p id="delete-description"></p><p>Its Gater configuration, branding, claims and unsent actions are removed. The Tlon group, roles and existing memberships are kept. Any external NFT indexer must also be stopped separately.</p><div class="form-actions"><button value="cancel" class="quiet">Keep collection</button><button value="delete" class="danger">Delete collection</button></div></form></dialog>
+  <dialog id="confirm-delete"><form method="dialog"><h2>Delete this collection?</h2><p id="delete-description"></p><p>Its Gater configuration, branding, claims and unsent actions are removed. The Tlon group, roles and existing memberships are kept. Native indexing for this collection stops automatically.</p><div class="form-actions"><button value="cancel" class="quiet">Keep collection</button><button value="delete" class="danger">Delete collection</button></div></form></dialog>
 <dialog id="confirm-action"><form method="dialog"><h2 id="confirm-title">Confirm change</h2><p id="confirm-description"></p><div class="form-actions"><button value="cancel" class="quiet">Cancel</button><button value="confirm" id="confirm-button">Continue</button></div></form></dialog>
 </body>
 </html>

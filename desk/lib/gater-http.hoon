@@ -92,7 +92,7 @@
   ^-  ?
   =/  action  (str:j jon 'action')
   ?:  =(target %action)  ?=(?(%claim %release %wallet-claim) action)
-  &(=(target %config-action) ?=(?(%audit-azimuth %retry-delivery %recheck-delivery %delivery-settings %approve-effect %configure %delete-collection %create-group %create-role %settings %owners %nfts %snapshot %source-error %suppress %unsuppress) action))
+  &(=(target %config-action) ?=(?(%rpc-settings %rpc-bootstrap %audit-azimuth %retry-delivery %recheck-delivery %delivery-settings %approve-effect %configure %delete-collection %create-group %create-role %settings %owners %nfts %snapshot %source-error %suppress %unsuppress) action))
 ++  redirect
   |=  location=@t
   ^-  simple-payload:http

@@ -88,6 +88,9 @@ for file in sorted(selected, key=import_order):
         first = len(number) % 4 or 4
         chunks = [number[:first]] + [number[i:i+4] for i in range(first, len(number), 4)]
         value = '`@t`0x' + '.'.join(chunks)
+        if mark == 'txt':
+            # Clay's %txt noun is a list of lines, unlike %hoon/%html cords.
+            value = f'(to-wain:format {value})'
     changes.append(f'[{path} %mut %{mark} !>({value})]')
 for change in changes:
     source = '''=/  m  (strand ,vase)

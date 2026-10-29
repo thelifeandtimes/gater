@@ -1,3 +1,7 @@
+# Legacy development configurations
+
+Gater 0.2 configures RPC credentials, discovery and bootstrap trust in the host UI. These JSON files remain reference inputs for the legacy Python development tools; installed desks do not read them. See [current installation](../docs/install.md).
+
 # Configuration
 
 `collection.example.json` is an actual `configure` action accepted by the app. Replace the group and role IDs before importing it. The contract was obtained from the ERC721 link on [Nockmilio's Scatter page](https://www.scatter.art/c/nockmilio). [Nockmilio source checks](../docs/nockmilio-verification.md) record its verified deployment, reviewed mint events and completed ownership replay.

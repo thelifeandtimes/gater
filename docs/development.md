@@ -20,7 +20,7 @@ python scripts/install.py /tmp/gater-dev-nec --init
 
 `--init` is only for a new desk. The loader imports via Clay, suspends the development desk during replacement, and compiles the complete agent. It leaves the desk suspended if compilation fails; inspect the ship console for diagnostics. Omit `--init` for updates. It does not reset saved agent state. `--files` can limit an update to named desk-relative files while still compiling the complete agent.
 
-In the fake ship's Dojo, run `|install our %gater` for the first install, or `|revive %gater` after an update. The current saved envelope v7 includes policy, delivery receipts, community presentation, the ownership audit and automatic/manual controls. It migrates earlier envelopes. The v0 migration remains explicit: fixture associations survive; legacy non-fixture claims require reassertion because they lack transfer provenance.
+In the fake ship's Dojo, run `|install our %gater` for the first install, or `|revive %gater` after an update. The current saved envelope v9 includes policy, delivery receipts, community presentation, the ownership audit, automatic/manual controls and private native RPC state. It migrates earlier envelopes. The v0 migration remains explicit: fixture associations survive; legacy non-fixture claims require reassertion because they lack transfer provenance.
 
 Open `http://127.0.0.1:8190/gater`. This public page offers EAuth and returns visitors to `/gater/claim`. The Host configuration link uses local login and returns the host to `/gater/config`. Use the disposable ship's `+code`; never put a real ship code into tooling or Git.
 
@@ -39,7 +39,20 @@ python scripts/poke.py /tmp/gater-dev-nec tests/fixtures/nfts.json
 
 Sign into `/gater/claim`, claim a token, then inspect Pending actions in `/gater/config`. Recognition DMs and admission/role intent appear, but nothing is sent. Observations expire after 15 minutes; reimport fixtures when needed. Importing fixture owners disables native Azimuth so it cannot silently replace the scenario.
 
-## Index an actual ERC-721 collection
+## Native RPC integration
+
+For installed desks, configure the key and token discovery in `/gater/config` as described in [installation](install.md). The ship performs all indexing. Test native verification on a disposable fake ship with delivery disabled and public chain data; see [native RPC](native-rpc.md). Keep this test separate from fixture smoke tests, which deliberately replace source state.
+
+```sh
+python scripts/check.py /tmp/gater-dev-nec --file tests/rpc.hoon
+python scripts/rpc_smoke.py /tmp/gater-eauth-zod --url http://127.0.0.1:8191
+```
+
+The HTTP smoke uses sentinel credentials on a fake ship with no configured communities or saved RPC credentials, verifies access controls and save/load, and clears those sentinels in cleanup. It does not need a real provider key.
+
+## Legacy external indexer reference
+
+The following v0.1 tooling remains useful for independent comparisons and experiments. It is not required by v0.2 and must not import into a ship while native RPC verification is enabled.
 
 1. Review the contract. Choose ERC-721Enumerable discovery or verified deployment-era event discovery with a meaningful totalSupply. Nonstandard collections need an adapter.
 2. Configure its policy in the host UI or import an edited `config/collection.example.json`.
@@ -118,7 +131,7 @@ This test uses publicly known private key 1 and invented ownership on the fake s
 
 ## JSON actions
 
-`configure`, `settings`, `owners` (fixture), `nfts` (fixture), `snapshot` (indexer), `source-error`, `suppress` and `unsuppress` require the host identity and use `POST /gater/config/action`. `claim`, `release` and `wallet-claim` use `POST /gater/action`, taking a collection and decimal-string token/revision. The member `reassign` action is removed; release and claim instead. `wallet-claim` additionally takes `expires` and a 65-byte hex `signature`; the receiving ship is always the authenticated actor. `POST /gater/wallet-challenge` returns the exact message, expiry, revision and required owner address for an eligible signed-in recipient. It uses the same authentication and CSRF checks and does not change state. Successful requests return the appropriate host or member view; rejected requests preserve state. Both endpoints require same-origin headers. Gall JSON pokes retain host/ship authorization.
+`rpc-settings`, `rpc-bootstrap`, `configure`, `settings`, `owners` (fixture), `nfts` (fixture), `snapshot` (indexer), `source-error`, `suppress` and `unsuppress` require the host identity and use `POST /gater/config/action`. `claim`, `release` and `wallet-claim` use `POST /gater/action`, taking a collection and decimal-string token/revision. The member `reassign` action is removed; release and claim instead. `wallet-claim` additionally takes `expires` and a 65-byte hex `signature`; the receiving ship is always the authenticated actor. `POST /gater/wallet-challenge` returns the exact message, expiry, revision and required owner address for an eligible signed-in recipient. It uses the same authentication and CSRF checks and does not change state. Successful requests return the appropriate host or member view; rejected requests preserve state. Both endpoints require same-origin headers. Gall JSON pokes retain host/ship authorization.
 
 The host-only Gall scry `/x/state` returns configuration and proposed effects. Test tools check the runtime Jael fake flag before every evaluation and refuse livenet piers. Only deployment/import tools have explicit live-target options. Exact-identity and non-fake checks execute in the same thread as the operation; the legacy comet option additionally checks rank. These are not Tlon delivery receipts. See [verification](verification.md) and [remaining acceptance checks](acceptance-tests.md).
 

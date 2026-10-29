@@ -1,6 +1,6 @@
 ::  Finalized effective Azimuth ownership from a pinned Urbit bootstrap plus
 ::  an RPC-audited complete log suffix. This is the same naive L2 interpreter
-::  used by %azimuth; the independent worker checks every log and L2 input.
+::  used by %azimuth; native RPC checks every log and L2 input.
 /-  *gater
 /+  naive, ethereum, j=gater-json, policy=gater-policy
 |%
@@ -129,6 +129,12 @@
   ?.  =(`(digest snap logs) (hex-number:j (str:j input 'materialDigest')))  [%| 'Azimuth audit material changed; audit again.']
   ?.  =(`(shax (jam snap)) (hex-number:j (str:j input 'anchorDigest')))  [%| 'Bootstrap anchor mismatch.']
   =/  result  (replay snap logs)
+  (commit st old result stamp u.height u.hash (shax (jam snap)))
+++  commit
+  |=  [st=state old=proof result=[owners=(map ship @ux) generations=(map ship @ux)] stamp=@da height=@ud hash=@ux anchor=@ux]
+  ^-  (each [state proof] @t)
+  ?:  &(enabled.old (lth height height.old))  [%| 'Finality regression refused.']
+  ?:  &(enabled.old =(height height.old) !=(hash hash.old))  [%| 'Finalized hash changed. Delivery paused for review.']
   =/  changed  |(!=(owners.st owners.result) !=(generations.old generations.result))
   =.  claims.st
     %-  ~(gas by *(map asset claim))
@@ -138,7 +144,7 @@
     ::  transitions also require uninterrupted ownership since the last audit.
     |(!enabled.old =((~(get by generations.old) who.cl) (~(get by generations.result) who.cl)))
   =.  st  (prune:policy st(owners owners.result, azimuth-at stamp, azimuth-status %observed, revision ?:(changed +(revision.st) revision.st)))
-  [%& st [& stamp u.height u.hash (shax (jam snap)) generations.result]]
+  [%& st [& stamp height hash anchor generations.result]]
 ++  view
   |=  [p=proof now=@da]
   (pairs:enjs:format ~[verified+b+(fresh-proof p now) height+s+(decimal:j height.p) hash+s+(hex-width hash.p 32) anchor+s+(hex-width anchor.p 32) scope+s+'Urbit bootstrap snapshot plus complete finalized Ethereum log suffix'])

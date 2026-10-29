@@ -1,136 +1,90 @@
-# Install Gater 0.1.0
+# Install Gater 0.2.0
 
-Gater runs on the ship hosting the Tlon group. Its web UI is served directly by Eyre. The desk has no JavaScript build step. Two Python workers run on the same computer as the pier: an NFT indexer for each collection and one Azimuth auditor for the host. **Installing the desk alone does not provide verified ownership updates.**
+Gater runs on the ship hosting the Tlon group. Eyre serves the UI; Gall timers and Iris maintain verified Ethereum and Base ownership. **No host environment variables, Python workers, or external background services are needed to run it.**
 
 ## Requirements
 
-- A running local pier with kernel `%zuse 408`, a compatible Tlon `%groups` desk, and native `%azimuth` available. This release was tested with Vere 4.6 and Tlon APIs `%group-action-5`, `%group-foreign-2`, `%chat-dm-action-2` and the v3 group scry. Other kernel/API versions require testing before use.
-- Python 3.10 or newer and `urbit` on the shell's `PATH`. The workers use Python's standard library; Node is needed only for browser-code tests.
-- Run the tools as the pier's owner, with access to its `.urb/conn.sock` and local Eyre HTTP port. For a remote host, run these commands over SSH on that host.
-- An Ethereum mainnet RPC endpoint for the Azimuth audit, plus an Ethereum or Base endpoint for each collection. The provider must support finalized blocks, historical logs, and the calls described in [configuration](../config/README.md).
-- A public HTTPS origin for visitors to reach Eyre and complete EAuth. Loopback addresses work only on your own computer. Keep the origin stable after configuration.
+- Kernel `%zuse 408`, native `%azimuth`, and compatible Tlon `%groups`/`%channels` agents. Tested interfaces are `%group-action-5`, `%group-foreign-2`, `%chat-dm-action-2` and the v3 group scry, with Vere 4.6.
+- Ethereum mainnet JSON-RPC access for effective Azimuth ownership, plus Base mainnet access for Base collections. Providers must support HTTPS, JSON-RPC batches, `finalized` blocks, historical `eth_getLogs`, `eth_getCode`, `eth_call`, and `eth_getTransactionByHash`. Gater never falls back to `latest`.
+- A reachable HTTPS origin for Eyre and visitor EAuth. Loopback URLs are useful only on your own computer.
 
-Back up the pier before a first installation or upgrade, using your usual stopped-pier backup procedure. Do not run two processes against the same pier.
+Back up your pier before upgrading using your usual stopped-pier backup procedure. Never run two runtimes against one pier.
 
-## 1. Get the release
+## 1. Install the desk
 
-On the computer running the pier:
-
-```sh
-git clone --branch v0.1.0-gplv3 https://github.com/thelifeandtimes/gater.git
-cd gater
-```
-
-Alternatively, extract `gater-0.1.0.tar.gz` from the [GitHub release](https://github.com/thelifeandtimes/gater/releases/tag/v0.1.0). It includes the desk, workers and this guide. Download the accompanying `SHA256SUMS` into the same directory, then verify and extract:
-
-```sh
-sha256sum --check SHA256SUMS
-tar -xzf gater-0.1.0.tar.gz
-cd gater-0.1.0
-```
-
-The `v0.1.0-gplv3` tag and refreshed archive include the GPLv3 license documents selected after the initial publication. Application code is identical to the original `v0.1.0` tag. Keep `desk/license.txt`, `desk/copyright.txt` and `desk/third-party-notices.txt` with the desk when distributing it.
-
-## 2. Load and start the desk
-
-Replace the example pier path and `~your-ship` with the actual path and identity of the ship hosting your Tlon group. The pier must already be running.
-
-```sh
-GATER_PIER=/absolute/path/to/pier
-GATER_SHIP='~your-ship'
-python3 scripts/install.py "$GATER_PIER" --init --live-ship "$GATER_SHIP"
-```
-
-The installer checks the exact running identity and refuses a fake ship in live mode. It creates `%gater`, imports `desk/` through Clay, suspends the desk while loading, and compiles the agent. It does not start or replace the pier. `--init` refuses an existing desk; omit it for an update. Without a live-target option the installer accepts only fake ships. The older `--live-comet` option remains restricted to comets.
-
-After `Compile complete`, run this in that ship's Dojo:
-
-```hoon
-|install our %gater
-```
-
-For later updates, rerun the installer **without `--init`**, then run `|revive %gater`. Saved collections, claims and delivery receipts migrate with the agent. If loading or compilation fails, leave the desk suspended and inspect the console before continuing.
-
-Open `https://YOUR-SHIP-HOST/gater/config` and log in through Eyre as the host. The public `/gater` and collection pages are separate from host configuration. This release uses direct Eyre URLs rather than a Landscape app tile.
-
-## 3. Configure a community
-
-In **Create a Gated Community +**:
-
-1. Choose a stable collection ID, chain and ERC-721 contract. For Nockmilio, use ID `nockmilio`, Base, and `0x7465e492a183f16c0805e57262898c7bec11808a`.
-2. Select a group hosted by this ship and its managed membership role, or create them in the editor. New groups use the collection ID and include `<collection-id>-chat`.
-3. Select recognition behavior: a DM with the claim link, invitations to all eligible ships, or no recognition action. Configure the removal policy and optional removal/rejoin DM.
-4. Set page branding and copy. Artwork loads only in the signed-in claimant's browser for their holdings; Gater does not keep a ship-side artwork cache.
-5. In Host settings, set the public origin and enable native Azimuth ownership. Use the actual reachable HTTPS origin, with no `/gater` suffix.
-
-Delivery is automatic by default once all checks are healthy. **Manually approve all actions** holds that collection's actions for review, and **Enable delivery** can pause the whole host. Configure these before starting the workers if you want to review the first actions. Recognition can address every eligible ship, so choose its behavior before supplying live ownership.
-
-Share `/gater/nockmilio` (or `/gater/<collection-id>`). Visitors authenticate with their own ship and select a held NFT at `/gater/<collection-id>/claim`.
-
-## 4. Provide private RPC credentials
-
-Export `ETHEREUM_RPC_URL` and, for Base collections, `BASE_RPC_URL` from a private provider configuration file in each worker terminal. For example, if you use a shared Infura environment at `~/.config/infura/env`:
-
-```sh
-set +x
-source "$HOME/.config/infura/env"
-```
-
-The worker commands below expect `ETHEREUM_RPC_URL` and `BASE_RPC_URL`. If the file exports only `INFURA_API_KEY`, derive those URLs in the shell without printing them:
-
-```sh
-export ETHEREUM_RPC_URL="https://mainnet.infura.io/v3/${INFURA_API_KEY:?Load your private Infura key first}"
-export BASE_RPC_URL="https://base-mainnet.infura.io/v3/${INFURA_API_KEY}"
-```
-
-Any compatible provider can supply these environment variables. Keep the file outside the checkout with permissions `600`. Do not put credentials in Git, command arguments, public artwork RPC settings, or the collection's public URLs. The host importer obtains a temporary local Eyre session in memory and logs it out after each import; you do not give it a saved `+code` or cookie.
-
-## 5. Run both workers
-
-From the release directory, start Nockmilio's Base indexer in one terminal:
-
-```sh
-python3 scripts/index.py \
-  --config config/index.nockmilio.json \
-  --state output/nockmilio-index.local.json \
-  --rpc-env BASE_RPC_URL \
-  --pier /absolute/path/to/pier \
-  --live-ship '~your-ship' \
-  --watch
-```
-
-Replace the pier path and ship identity in each worker command with the same values used for installation. In another terminal, load the same private environment and start the Ethereum audit:
-
-```sh
-python3 scripts/audit_azimuth.py \
-  --pier /absolute/path/to/pier \
-  --live-ship '~your-ship' \
-  --rpc-env ETHEREUM_RPC_URL \
-  --anchor config/azimuth-anchor.json \
-  --cache output/azimuth-audit.local.json \
-  --watch
-```
-
-The first runs fetch historical data and may take time and provider credits. Subsequent runs reuse saved checkpoints. Keep `output/` private and preserve it across worker restarts. Only one indexer may own a state file; run only one auditor for a given host/cache. In deployment, run these same commands under your process supervisor, as the pier owner, with the release directory as their working directory and the private environment loaded. The files in `ops/` are examples for the original local comet pilot; adapt their paths, target identity and dependencies for your deployment.
-
-Check the host page for **both** a fresh ownership audit and a healthy NFT source before testing claims. Stale or unavailable evidence pauses new delivery. The audit is pinned to the bootstrap in `config/azimuth-anchor.json`; if the ship has a different bootstrap, verification refuses to proceed. Review that bootstrap and its canonical block/digest before changing the pin—do not disable the check to force delivery. See [ownership trust and delivery recovery](production-delivery.md).
-
-For another collection, create matching host settings and an indexer configuration, then run another indexer with its own state file. The indexer `collection`, `chain` and `contract` must match the host. `config/index.example.json` contains placeholders; choose ERC-721Enumerable discovery or a reviewed deployment/event history with accurate `totalSupply`. Arbitrary ERC-721 contracts may need an adapter; ERC-1155 is not supported. The current snapshot import limit is 2 MB.
-
-## 6. Verify and distribute
-
-Before distributing, use a visitor's EAuth session to link an eligible NFT, accept the invitation, check the role, release the link, and check removal plus the configured DM. Delivery receipts show observed Tlon results; a queued action is not a receipt. Independent/manual access and protected roles can prevent removal as described in [delivery](production-delivery.md).
-
-To make the loaded desk readable by the network, run on the publisher:
-
-```hoon
-|public %gater
-```
-
-Once the publisher's ship is reachable and its desk is public, another group host can install it with:
+If a publisher distributes `%gater`, use its actual identity in Dojo:
 
 ```hoon
 |install ~publisher-ship %gater
 ```
 
-Replace `~publisher-ship` with the actual identity distributing `%gater`. Publishing a GitHub release is separate from publishing a desk on Urbit. Each receiving host still needs its own community configuration and workers from this release. Ordinary visitors claiming membership need neither the desk nor the workers. Urbit tracks subsequent desk updates from the publisher; keep worker versions aligned with the distributed desk. See Urbit's [software distribution reference](https://docs.urbit.org/build-on-urbit/userspace/dist).
+Open `/gater/config` on your ship’s web host and sign in as the host. Gater uses direct Eyre URLs, with no Landscape tile or JavaScript build step.
+
+Alternatively, load the source release on the computer running your pier. This optional loader requires Python 3.10+ and `urbit` on `PATH`; these are installation tools, not Gater runtime dependencies.
+
+```sh
+git clone --branch v0.2.0 https://github.com/thelifeandtimes/gater.git
+cd gater
+python3 scripts/install.py /absolute/path/to/pier --init --live-ship '~your-ship'
+```
+
+Replace the path and ship identity. The loader verifies the running identity, creates the desk, imports files through Clay and compiles the agent while the desk is suspended. After `Compile complete`, run `|install our %gater` in Dojo. Without `--live-ship`, the tool accepts only disposable fake ships. For an existing desk, omit `--init`, then run `|revive %gater` after successful compilation.
+
+The [GitHub release](https://github.com/thelifeandtimes/gater/releases/tag/v0.2.0) also includes a source archive and `SHA256SUMS`:
+
+```sh
+sha256sum --check SHA256SUMS
+tar -xzf gater-0.2.0.tar.gz
+```
+
+## 2. Save RPC access on the ship
+
+Under **RPC & ownership**, paste an Infura API key with Ethereum mainnet and Base enabled. Gater derives both endpoints on the ship. If using another provider, expand **Custom endpoints** and enter its full HTTPS URLs, including any provider credential in those URLs. A custom endpoint overrides Infura for that network; clearing it restores the Infura fallback.
+
+Ethereum is required even for a Base-only NFT community because Urbit ownership lives on Ethereum/Azimuth. Configure only Ethereum if all your collections are on Ethereum.
+
+Click **Save RPC settings**. Blank fields retain existing credentials; the explicit removal checkboxes clear them. Saved keys and URLs never return in configuration JSON or password fields. The page reports configured networks, scan progress and sanitized errors. Credentials are private Gall state, not collection branding or public artwork settings. They are also recorded in the pier’s event history and backups: removing an active key does not erase historical copies. Rotate compromised credentials at the provider. Use HTTPS for remote configuration, and never enter a wallet private key.
+
+No shell exports or services are involved. The ship polls while it is running, retains checkpoints and in-progress work across reloads, and catches up after downtime. Initial history replay can take considerably longer than subsequent incremental checks. Provider quotas still apply; API usage is billed to the host’s provider account.
+
+## 3. Review the Azimuth bootstrap
+
+Gater starts from a trusted Urbit bootstrap snapshot and verifies the complete finalized Ethereum log suffix, including Urbit L2 transaction inputs. It does not reconstruct or cryptographically prove all pre-bootstrap history.
+
+The release includes a reviewed anchor at Ethereum block **25,421,988**. If your ship has that snapshot, it is retained automatically when verification starts. If your ship has a different snapshot, **Azimuth bootstrap trust** shows its block, canonical hash and noun fingerprint. Review the snapshot source and explicitly choose **Trust this ship’s bootstrap** only if you trust your Urbit installation’s historical state. Gater then independently checks the anchor’s canonical block and all subsequent events. Existing NFT claims must be released before changing an anchor; the UI never silently replaces it. The accepted snapshot is retained so a later `%azimuth` snapshot update does not change Gater’s trust boundary.
+
+A missing or empty bootstrap is not accepted. Wait for native Urbit ownership sync. A fake development ship starts with an empty bootstrap; see the [native RPC guide](native-rpc.md) for test setup.
+
+## 4. Configure a community
+
+Choose **Create a Gated Community +**:
+
+1. Enter a stable collection ID, display name, network and ERC-721 contract.
+2. Configure **Ownership indexing**. Use enumeration for an ERC721Enumerable contract. Otherwise select reviewed event history, enter the deployment block, and document the reviewed mint/transfer/burn event coverage. Event mode requires complete Transfer/ERC-2309 history and a working `totalSupply()`. Contracts with unusual or incomplete event semantics need an adapter; ERC-1155 is unsupported. Coverage settings are fixed after the first verified checkpoint.
+3. Select a hosted group and membership role, or create them. A new group uses the collection ID and gets `<collection-id>-chat`.
+4. Choose recognition behavior: send a DM with the claim link, invite eligible ships, or do nothing. Configure loss of eligibility, optional removal DM and manual approval if desired.
+5. Customize the collection pages. Artwork loads only for the authenticated claimant in their browser; Gater stores no artwork or metadata on the ship.
+6. Set a reachable public origin under Host settings, without a `/gater` suffix.
+
+Nockmilio’s Base contract is `0x7465e492a183f16c0805e57262898c7bec11808a`. The editor recognizes it and fills the reviewed event-history configuration, starting at deployment block `52544634`.
+
+Choose manual approval or pause delivery **before** configuring real ownership if you want to inspect the first actions. Once verification is healthy, delivery is automatic by default. Share `/gater/<collection-id>`; visitors EAuth and select an NFT at `/gater/<collection-id>/claim`.
+
+## 5. Upgrade from 0.1
+
+1. Pause delivery if you want to review the transition. Stop the v0.1 NFT and Azimuth worker processes/services and disable their automatic restart. Do not run legacy importers alongside native verification.
+2. Update the desk through your publisher, or load v0.2.0 source without `--init` and then `|revive %gater`.
+3. Save RPC credentials in the host UI. Environment variables from the old worker host are not imported automatically.
+4. Review ownership coverage in each community. The Nockmilio preset is automatic; other event-based collections need their reviewed deployment configuration entered in the editor.
+5. Wait for native NFT and Azimuth verification. Existing collections, claims, themes, delivery settings and receipts migrate. A compatible verified NFT cursor and its transfer generations are carried forward, then all owners are rechecked. Changed code, conflicting finalized history or coverage changes stop verification rather than silently resetting claims.
+6. Resume delivery after checking source status and receipts.
+
+Keep old worker cache files only as optional operator backups. They are no longer used by the desk. Upgrading is a forward state migration; restore a complete pre-upgrade backup if rolling back to v0.1.
+
+## 6. Verify and distribute
+
+Check that the configuration page reports current Azimuth verification and a current finalized checkpoint for each collection. Test EAuth, claim, invitation acceptance, and release with a consenting participant. Review delivery receipts. A release revokes managed roles and, by default, managed membership; independent roles/membership protections still apply.
+
+To distribute your installed desk through Urbit, use the normal publisher workflow (`|commit %gater` if using a filesystem mount, then `|public %gater`). Recipients run `|install ~your-publisher-ship %gater` and configure their own RPC credentials in their own host UI. Credentials are Gall state and are not distributed with Clay desk source.
+
+Keep `desk/license.txt`, `desk/copyright.txt` and `desk/third-party-notices.txt` in the published desk. GitHub release publication does not itself update a livenet ship.

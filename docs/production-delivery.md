@@ -12,23 +12,11 @@ Ethereum block 25,421,988, its canonical block hash and the snapshot noun digest
 This inherits trust in Urbit's historical bootstrap; it is not a genesis replay
 or a cryptographic proof of the bootstrap's complete historical state.
 
-`scripts/audit_azimuth.py` compares the entire subsequent native `%azimuth` log
-suffix with Ethereum RPC for the Azimuth and Urbit rollup contracts. It checks
-mainnet identity, the anchor's canonical hash, a recent finalized target,
-complete ordered log coverage, log block hashes, and rollup transaction hash,
-block, destination and calldata. RPC remains the chain-data trust source. The
-worker rejects unknown anchors, omitted/extra/duplicate logs, conflicting
-finalized history and unfinalized or stale targets. A temporarily lagging
-provider cannot make it fall back to `latest`.
+The native RPC engine checks Ethereum mainnet identity, the anchor's canonical hash, a recent finalized target, complete log-window coverage, each log block hash, and rollup transaction hash, block, destination and calldata. RPC remains the chain-data trust source. The engine rejects malformed/duplicate logs, conflicting finalized history and stale targets; it never falls back to `latest`.
 
-The host atomically rechecks the snapshot/history digest and replays the suffix
-with Urbit's `naive` interpreter. Effective L2 owners are used; depositing a ship
-into Urbit L2 preserves its effective owner. Transfer generations survive
-unrelated events and invalidate claims after transfers away and back. Once audit
-mode is active, unaudited head observations cannot overwrite the finalized map.
-Proof freshness expires after fifteen minutes. NFT imports separately require
-finalized, complete discovery and ownership evidence; missing freshness pauses
-new actions. An outstanding result may still be observed while paused/stale.
+The host atomically replays the verified suffix with Urbit's `naive` interpreter. Effective L2 owners are used; depositing a ship into Urbit L2 preserves its effective owner. Transfer generations invalidate claims after transfers away and back. Once audit mode is active, unaudited head observations cannot overwrite the finalized map. Proof freshness expires after fifteen minutes. NFT ownership separately requires finalized, complete discovery and ownership evidence; missing freshness pauses new actions. An outstanding result may still be observed while paused/stale.
+
+The host UI can explicitly approve a different installed Urbit bootstrap after reviewing its height, hash and fingerprint. Existing claims must be released before changing this trust anchor. Approved snapshots are retained on the ship. See [native RPC verification](native-rpc.md) and [installation](install.md); no external worker or host environment is required.
 
 The vendor files `desk/lib/{naive,tiny,ethereum}.hoon` are copied unchanged from
 `urbit/urbit` commit `50c7f5239610fc72263df7aa99b4d171cfe9d408`, `pkg/arvo/lib/`.
@@ -98,24 +86,6 @@ or DM to propose its claim link. Public claim links require a reachable public
 host origin; loopback URLs are useful only on this computer. Host URL suggestions
 come from Eyre, not an external reachability test.
 
-## Local pilot services
+## Migration from the original pilot
 
-For another host, follow the worker commands in [installation](install.md). The
-service names and paths below describe the original development deployment.
-
-`gater-comet` runs the dedicated pier, `gater-nockmilio` imports finalized NFT
-ownership, and `gater-azimuth` audits Ethereum every two minutes. The initial
-audit is larger; later runs reuse verified finalized history. These workers read
-`~/.config/infura/env` in process, never through arguments or the browser.
-Artwork now loads only in the claimant’s browser; the old `gater-media` worker
-and its collection-wide cache have been removed.
-
-```sh
-systemctl --user status gater-comet gater-nockmilio gater-azimuth
-python scripts/comet.py status
-python scripts/comet.py check
-```
-
-A private pre-upgrade pier backup is in `output/comet-pre-ui-upgrade/.urb`.
-Stop the deployment before any restoration. Do not run a restored copy alongside
-the same comet identity.
+The original v0.1 development pilot used external NFT and Azimuth services. Stop those workers and disable their restart before upgrading; v0.2 performs both jobs inside the ship. Follow the [upgrade guide](install.md#5-upgrade-from-01). The ship runtime remains the only required running process.

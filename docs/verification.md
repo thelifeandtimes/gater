@@ -1,5 +1,15 @@
 # Verification record
 
+## Native RPC release 0.2.0 — 2026-10-29 UTC
+
+The native release compiled on disposable fake `~nec` and a newly installed Gater desk on fake `~zod`, with Vere 4.6 / `%zuse 408`. All 196 Hoon scenarios (including 29 native RPC cases), 89 Python cases and 19 JavaScript cases passed. The source loader now converts `%txt` license/notice files to Clay’s line-list representation; the complete 47-file import and agent compile passed.
+
+Native RPC HTTP integration passed anonymous/member endpoint rejection, invalid endpoint and bootstrap rejection, write-only responses, blank preservation, custom override/fallback, explicit clear and credential persistence across Gall reload. A real EAuth visitor from the other fake ship was refused RPC configuration, bootstrap changes and configuration reads. Existing HTTP claim/auth/CSRF/save-load, source lifecycle/failure/generation and presentation/privacy regressions passed on separate fixture state. Community integration also passed group/initial-chat and role creation, scoped branding, reload and deletion while preserving Tlon objects. Browser review confirmed the password fields, custom endpoint controls, saved-state indicators and scan progress with no console errors.
+
+Real-chain integration uses only the fake ship, a provider key and Urbit’s publicly published bootstrap. The bootstrap matched the reviewed block/hash/digest. Native Iris completed the finalized Ethereum suffix through block 26,299,535, including canonical event-block and rollup-input checks; the audit became verified. No Python NFT/audit worker is used in this test. Native Nockmilio verification reconciled all 1,957 tokens and checked every owner at finalized Base block 53,251,175. Credentials, the source epoch and checkpoint survived Gall reload; saving matching collection coverage preserved that epoch. The next native round advanced Ethereum to 26,299,727 and Base to 53,251,570, with both sources fresh, no errors and the same NFT epoch. The initial scan temporarily outlived audit freshness, correctly pausing eligibility until the next audit completed.
+
+Credentials persist in private Gall state and the pier’s event history; clearing active configuration does not erase old events. No artwork or metadata storage was introduced. No live ship was read or changed during these tests; Tlon delivery was disabled for real-chain integration. Historical bootstrap trust, RPC completeness and reviewed ERC-721 event semantics remain explicit assumptions.
+
 ## Public release 0.1.0 — 2026-10-29 UTC
 
 The release desk compiled on disposable fake `~nec` with Vere 4.6 / `%zuse 408`.
@@ -105,7 +115,7 @@ Final HTTP checks passed the public/private routes, CSRF, member actor binding,
 claim restoration and Gall reload. Real EAuth between fake ships passed scoped
 return paths, host-only boundaries, release/reclaim, unsigned takeover denial,
 logout and rejected login. Logging out the remote EAuth session preserved the
-independent host session. Browser review confirmed styled dialogs, editor closure
+independent host session. Community integration also passed group/initial-chat and role creation, scoped branding, reload and deletion while preserving Tlon objects. Browser review confirmed styled dialogs, editor closure
 and success notice, X banner/avatar loading, artwork cards, confirmation and
 release. The final card-selection screenshot is `output/claim-cards-review.png`;
 its ownership fixtures belong to the disposable fake ship, not the live claimant.
