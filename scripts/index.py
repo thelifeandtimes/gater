@@ -115,23 +115,50 @@ def replay(tokens, logs, contract, lower, upper, max_tokens):
     return blocks
 
 
-def update(rpc, config, previous=None, *, window=2000, max_tokens=100000, now=None):
+def seed_identity(previous):
+    if not previous:
+        return None
+    return {key: previous[key] for key in ('config', 'checkpoint', 'epoch', 'codeHash')}
+
+
+def update(rpc, config, previous=None, *, window=2000, max_tokens=100000, now=None,
+           progress=None, save_progress=None, audit_interval=21600):
     config = config_checked(config)
-    if window < 1 or max_tokens < 1:
-        raise ValueError('Invalid range or token limit')
+    if window < 1 or max_tokens < 1 or audit_interval < 0:
+        raise ValueError('Invalid range, token limit or audit interval')
     if quantity(rpc('eth_chainId', [])) != config['chain']:
         raise ValueError('RPC chain mismatch')
-    now = int(time.time()) if now is None else now
-    final = header(rpc, 'finalized')
-    height, contract = final['number'], config['contract']
-    if not 0 <= now - final['timestamp'] <= 3600:
+    real_clock = now is None
+    now = int(time.time()) if real_clock else now
+    latest = header(rpc, 'finalized')
+    if not 0 <= now - latest['timestamp'] <= 3600:
         raise ValueError('Finalized checkpoint is stale or in the future')
+    final, contract = latest, config['contract']
+    base = seed_identity(previous)
+    if progress:
+        if progress.get('version') != 1 or progress['config'] != config or progress['base'] != base:
+            raise ValueError('Work checkpoint does not match the saved index; explicit rebuild required')
+        target = progress['checkpoint']
+        if target['number'] > latest['number'] or header(rpc, hex(target['number'])) != target:
+            raise ValueError('Work checkpoint divergence; explicit rebuild required')
+        if 0 <= now - target['timestamp'] <= 3600:
+            final = target
+        elif config['discovery'] == 'enumerable' and not previous:
+            # Enumeration cannot mix token indexes from different blocks.
+            progress = None
+        else:
+            # Reuse validated event history; validate owners afresh at the new target.
+            progress = copy.deepcopy(progress)
+            progress['checkpoint'] = final
+            progress['verified'] = 0
+    height = final['number']
     code = rpc('eth_getCode', [contract, hex(height)])
     if not isinstance(code, str) or not re.fullmatch(r'0x(?:[0-9a-fA-F]{2})+', code):
         raise ValueError('Missing or invalid contract bytecode')
     code_hash = digest(code.lower())
     if not supports(rpc, contract, height, '80ac58cd'):
         raise ValueError('ERC-721 support required')
+    audit_all = not previous or 'lastFullAudit' not in previous or now - previous['lastFullAudit'] >= audit_interval
     if previous:
         if previous.get('version') != 1 or previous['config'] != config:
             raise ValueError('Index configuration changed; explicit rebuild required')
@@ -145,21 +172,8 @@ def update(rpc, config, previous=None, *, window=2000, max_tokens=100000, now=No
         bootstrap = previous['bootstrap']
     else:
         tokens, epoch = {}, '0x' + uuid.uuid4().hex.rjust(64, '0')
-        bootstrap = height
-        lower = height + 1
-        if config['discovery'] == 'enumerable':
-            if not supports(rpc, contract, height, '780e9d63'):
-                raise ValueError('Collection does not implement ERC-721 enumeration')
-            supply = call(rpc, contract, height, '0x18160ddd')
-            if supply > max_tokens:
-                raise ValueError('Collection exceeds the configured token limit')
-            for i in range(supply):
-                token = str(call(rpc, contract, height, '0x4f6ccce7' + f'{i:064x}'))
-                if token in tokens:
-                    raise ValueError('Duplicate token from enumeration')
-                tokens[token] = {'owner': owner_of(rpc, contract, height, token),
-                                 'generation': str(int(digest(f'{final["hash"]}:bootstrap:{token}'), 16))}
-        else:
+        bootstrap, lower = height, height + 1
+        if config['discovery'] == 'events-supply':
             lower = bootstrap = config['deploymentBlock']
             if lower > height:
                 raise ValueError('Deployment block is beyond finality')
@@ -167,6 +181,46 @@ def update(rpc, config, previous=None, *, window=2000, max_tokens=100000, now=No
                 raise ValueError('Contract already existed before declared deployment')
             if rpc('eth_getCode', [contract, hex(lower)]) in ('0x', '0x0'):
                 raise ValueError('Contract absent at declared deployment')
+    enumeration_index, verified = 0, 0
+    if progress:
+        if progress['codeHash'] != code_hash:
+            raise ValueError('Work bytecode changed; review and rebuild required')
+        tokens = copy.deepcopy(progress['tokens'])
+        epoch, bootstrap, lower = progress['epoch'], progress['bootstrap'], progress['nextBlock']
+        enumeration_index, verified = progress['enumerationIndex'], progress['verified']
+        audit_all = progress['auditAll']
+        if not bootstrap <= lower <= height + 1 or len(tokens) > max_tokens:
+            raise ValueError('Invalid work cursor or token limit')
+        boundary = progress.get('boundary')
+        if boundary and header(rpc, hex(boundary['number'])) != boundary:
+            raise ValueError('Work boundary divergence; explicit rebuild required')
+    boundary = progress.get('boundary') if progress else None
+
+    def checkpoint():
+        if save_progress:
+            save_progress({'version': 1, 'config': config, 'base': base, 'checkpoint': final,
+                           'codeHash': code_hash, 'epoch': epoch, 'bootstrap': bootstrap,
+                           'nextBlock': lower, 'boundary': boundary, 'tokens': tokens,
+                           'enumerationIndex': enumeration_index, 'verified': verified,
+                           'auditAll': audit_all})
+
+    checkpoint()
+    if not previous and config['discovery'] == 'enumerable':
+        if not supports(rpc, contract, height, '780e9d63'):
+            raise ValueError('Collection does not implement ERC-721 enumeration')
+        supply = call(rpc, contract, height, '0x18160ddd')
+        if supply > max_tokens or not 0 <= enumeration_index <= supply or len(tokens) != enumeration_index:
+            raise ValueError('Invalid enumeration cursor or collection token limit')
+        for i in range(enumeration_index, supply):
+            token = str(call(rpc, contract, height, '0x4f6ccce7' + f'{i:064x}'))
+            if token in tokens:
+                raise ValueError('Duplicate token from enumeration')
+            tokens[token] = {'owner': owner_of(rpc, contract, height, token),
+                             'generation': str(int(digest(f'{final["hash"]}:bootstrap:{token}'), 16))}
+            enumeration_index = i + 1
+            if enumeration_index % 25 == 0:
+                checkpoint()
+        checkpoint()
     step = window
     while lower <= height:
         upper = min(height, lower + step - 1)
@@ -182,16 +236,32 @@ def update(rpc, config, previous=None, *, window=2000, max_tokens=100000, now=No
         for block, block_hash in blocks.items():
             if header(rpc, hex(block))['hash'] != block_hash:
                 raise ValueError('Log block is not canonical')
+        boundary = header(rpc, hex(upper))
         lower = upper + 1
+        checkpoint()
     # Count is independent of discovery, catching missing constructor mints.
     supply = call(rpc, contract, height, '0x18160ddd')
     if supply != len(tokens):
         raise ValueError('totalSupply disagrees with index coverage; use enumeration or a collection adapter')
-    for token, data in tokens.items():
-        if owner_of(rpc, contract, height, token) != data['owner']:
+    old_tokens = previous['tokens'] if previous else {}
+    checks = sorted((t for t in tokens if audit_all or tokens[t] != old_tokens.get(t)), key=int)
+    if not 0 <= verified <= len(checks):
+        raise ValueError('Invalid owner verification cursor')
+    checkpoint()
+    for i in range(verified, len(checks)):
+        token = checks[i]
+        if owner_of(rpc, contract, height, token) != tokens[token]['owner']:
             raise ValueError('ownerOf disagrees with index')
+        verified = i + 1
+        if verified % 25 == 0:
+            checkpoint()
     if header(rpc, hex(height)) != final:
         raise ValueError('Finalized checkpoint changed during scan')
+    if real_clock:
+        now = int(time.time())
+        if not 0 <= now - final['timestamp'] <= 3600:
+            # Work is retained; the next run advances its target and rechecks owners.
+            raise RpcError('Checkpoint aged during scan; resume at newer finality', retryable=True)
     snapshot = {'action': 'snapshot', 'collection': config['collection'], 'chain': str(config['chain']),
                 'contract': contract, 'observedAt': str(now), 'block': str(height), 'blockHash': final['hash'],
                 'epoch': epoch, 'coverage': {'method': config['discovery'], 'fromBlock': str(bootstrap),
@@ -199,6 +269,7 @@ def update(rpc, config, previous=None, *, window=2000, max_tokens=100000, now=No
                 'tokens': [dict(id=token, **tokens[token]) for token in sorted(tokens, key=int)]}
     return {'version': 1, 'config': config, 'checkpoint': final, 'codeHash': code_hash, 'epoch': epoch,
             'bootstrap': bootstrap, 'tokens': tokens, 'snapshot': snapshot,
+            'lastFullAudit': now if audit_all else previous['lastFullAudit'],
             'health': {'ok': True, 'attemptedAt': now, 'lastSuccess': now}}
 
 
@@ -220,9 +291,19 @@ def atomic_write(path, value):
 def run_once(rpc, config, state_path, *, rebuild=False, **options):
     path = Path(state_path)
     previous = json.loads(path.read_text()) if path.exists() else None
+    work_path = path.with_suffix(path.suffix + '.work')
+    if rebuild:
+        work_path.unlink(missing_ok=True)
+    progress = json.loads(work_path.read_text()) if work_path.exists() else None
     try:
         seed = previous if previous and 'snapshot' in previous else None
-        result = update(rpc, config, None if rebuild else seed, **options)
+        if seed and progress and seed['checkpoint'] == progress['checkpoint'] and seed['epoch'] == progress['epoch']:
+            # The committed index won a crash between its atomic rename and work cleanup.
+            progress = None
+            work_path.unlink(missing_ok=True)
+        rebuilding = rebuild or (progress is not None and progress['base'] is None)
+        result = update(rpc, config, None if rebuilding else seed, progress=progress,
+                        save_progress=lambda work: atomic_write(work_path, work), **options)
     except (ValueError, KeyError, TypeError) as error:
         failed = copy.deepcopy(previous) if previous else {'version': 1, 'config': config}
         failed['health'] = {'ok': False, 'attemptedAt': int(time.time()),
@@ -231,6 +312,7 @@ def run_once(rpc, config, state_path, *, rebuild=False, **options):
         atomic_write(path, failed)
         raise
     atomic_write(path, result)
+    work_path.unlink(missing_ok=True)
     return result
 
 
@@ -242,12 +324,20 @@ def main():
     parser.add_argument('--rpc-env', default='GATER_RPC_URL')
     parser.add_argument('--window', type=int, default=2000)
     parser.add_argument('--max-tokens', type=int, default=100000)
+    parser.add_argument('--rpc-min-interval', type=float, default=0.6, help='Minimum seconds between RPC attempts')
+    parser.add_argument('--rpc-attempts', type=int, default=6)
+    parser.add_argument('--audit-interval', type=int, default=21600, help='Seconds between complete owner audits; 0 audits every poll')
     parser.add_argument('--watch', action='store_true', help='Poll continuously with bounded failure backoff')
     parser.add_argument('--interval', type=int, default=60)
     parser.add_argument('--rebuild', action='store_true', help='Discard cursor, establish a new epoch, and require new claims')
     parser.add_argument('--pier', type=Path, help='Import success or failure into this explicitly selected local host pier')
+    target = parser.add_mutually_exclusive_group()
+    target.add_argument('--live-ship', help='Opt in to this exact livenet ship identity; defaults to fake-only')
+    target.add_argument('--live-comet', help='With --pier, opt in to this exact livenet comet identity; defaults to fake-only')
     args = parser.parse_args()
+    if (args.live_comet or args.live_ship) and not args.pier: parser.error('--live-ship / --live-comet requires --pier')
     paths = [args.config.resolve(), args.state.resolve()]
+    paths += [args.state.with_suffix(args.state.suffix + suffix).resolve() for suffix in ('.work', '.lock')]
     if args.output: paths.append(args.output.resolve())
     if len(paths) != len(set(paths)): parser.error('Config, state and output must be different files')
     if args.interval < 5: parser.error('Polling interval must be at least five seconds')
@@ -259,24 +349,27 @@ def main():
         try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError: parser.exit(1, 'Another indexer owns this state file\n')
         if args.rebuild and args.pier:
-            import_payload(args.pier, {'action': 'source-error', 'collection': config['collection']})
+            import_payload(args.pier, {'action': 'source-error', 'collection': config['collection']}, live_comet=args.live_comet, live_ship=args.live_ship)
         rebuild, delay = args.rebuild, args.interval
         while True:
             good = False
             try:
-                result = run_once(Rpc(endpoint), config, args.state, rebuild=rebuild,
-                                  window=args.window, max_tokens=args.max_tokens)
+                result = run_once(Rpc(endpoint, attempts=args.rpc_attempts, min_interval=args.rpc_min_interval),
+                                  config, args.state, rebuild=rebuild, window=args.window,
+                                  max_tokens=args.max_tokens, audit_interval=args.audit_interval)
                 payload = result['snapshot']
                 rebuild = False
                 good = True
             except (ValueError, KeyError, TypeError):
+                if args.state.with_suffix(args.state.suffix + '.work').exists():
+                    rebuild = False
                 payload = {'action': 'source-error', 'collection': config['collection']}
                 print('Index rejected; last good state preserved and source health marked failed. Check provider, coverage and checkpoint before rebuilding.', flush=True)
             if args.output: atomic_write(args.output, payload)
             if args.pier:
                 try:
-                    import_payload(args.pier, payload)
-                except (RuntimeError, OSError, subprocess.SubprocessError):
+                    import_payload(args.pier, payload, live_comet=args.live_comet, live_ship=args.live_ship)
+                except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
                     good = False
                     print('Host import failed; local index is saved and the next poll will retry delivery.', flush=True)
             if good:
@@ -289,13 +382,16 @@ def main():
 
 
 
-def import_payload(pier, payload):
-    from conn import evaluate
-    encoded = json.dumps(payload, separators=(',', ':')).replace('\\', '\\\\').replace("'", "\\'")
-    evaluate(pier, f"""=/  m  (strand ,vase)
+def import_payload(pier, payload, *, live_comet=None, live_ship=None):
+    if payload.get('action') == 'snapshot':
+        from host_import import import_snapshot
+        return import_snapshot(pier, payload, live_comet=live_comet, live_ship=live_ship)
+    from conn import evaluate_target, hoon_cord
+    encoded = hoon_cord(json.dumps(payload, separators=(',', ':')))
+    evaluate_target(pier, f"""=/  m  (strand ,vase)
 ;<  b=bowl:spider  bind:m  get-bowl
-;<  ~  bind:m  (poke [our.b %gater] %json !>((need (de:json:html '{encoded}'))))
-(pure:m !>(%imported))""")
+;<  ~  bind:m  (poke [our.b %gater] %json !>((need (de:json:html {encoded}))))
+(pure:m !>(%imported))""", live_comet=live_comet, live_ship=live_ship)
 
 
 if __name__ == '__main__':

@@ -92,6 +92,16 @@
 ?>  (~(has by tokens.p.result) [%example maximum])
 ~|  %public-routes-are-open
 ?>  (levy `(list @tas)`~[%landing %landing-js %style] |=(target=@tas =(200 (access target req(authenticated |) (bex 100) ~nec))))
+~|  %public-login-csp-allows-eauth-redirects
+?>  =((crip "default-src 'self'; script-src 'self'; connect-src 'self' https://api.fxtwitter.com; style-src 'self'; font-src 'self' http: https:; img-src 'self' http: https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self' http: https:") (content-security-policy /web/index/html))
+~|  %authenticated-pages-and-assets-keep-strict-csp
+?>  (levy `(list path)`~[/web/config/html /web/landing/js /web/claim/js /web/config/js /web/style/css] |=(pax=path =((crip "default-src 'self'; script-src 'self'; connect-src 'self' https://api.fxtwitter.com; style-src 'self'; font-src 'self' http: https:; img-src 'self' http: https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'") (content-security-policy pax))))
+~|  %claim-artwork-can-read-https-metadata
+?>  =((crip "default-src 'self'; script-src 'self'; connect-src 'self' https:; style-src 'self'; font-src 'self' http: https:; img-src 'self' http: https:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'") (content-security-policy /web/claim/html))
+~|  %artwork-cache-endpoints-removed
+?>  =(%missing (route '/gater/example/metadata'))
+?>  =(%missing (route '/gater/images'))
+?>  !(allowed-action %config-action (pairs:enjs:format ~[action+s+'import-media']))
 ~|  %configuration-routes-reject-anonymous
 ?>  (levy `(list @tas)`~[%config %config-js %config-state %config-action] |=(target=@tas =(403 (access target req(authenticated |) (bex 100) ~nec))))
 ~|  %configuration-routes-reject-remote-ships
@@ -101,9 +111,9 @@
 ~|  %configuration-routes-allow-authenticated-host
 ?>  (levy `(list @tas)`~[%config %config-js %config-state %config-action] |=(target=@tas =(200 (access target req(authenticated &) ~nec ~nec))))
 ~|  %claims-require-a-verified-ship
-?>  (levy `(list @tas)`~[%claim %claim-js %me %action %wallet-challenge] |=(target=@tas &(=(401 (access target req(authenticated |) (bex 100) ~nec)) =(401 (access target req(authenticated |) ~nec ~nec)) =(200 (access target req(authenticated |) ~zod ~nec)) =(200 (access target req(authenticated &) ~nec ~nec)))))
+?>  (levy `(list @tas)`~[%claim %claim-js %artwork-js %me %action %wallet-challenge] |=(target=@tas &(=(401 (access target req(authenticated |) (bex 100) ~nec)) =(401 (access target req(authenticated |) ~nec ~nec)) =(200 (access target req(authenticated |) ~zod ~nec)) =(200 (access target req(authenticated &) ~nec ~nec)))))
 ~|  %path-and-extension-aliases-are-not-routes
-?>  (levy `(list @t)`~['/gater/x/config' '/gater/config.json' '/gater/config.js.map' '/gater/action.json' '/gater/app.js' '/gater/missing' '/gater/claim.js/anything' '/gater/config//state'] |=(url=@t =(%missing (route url))))
+?>  (levy `(list @t)`~['/gater/x/config' '/gater/config.json' '/gater/config.js.map' '/gater/action.json' '/gater/app.js' '/gater/config/claim' '/gater/claim.js/anything' '/gater/config//state'] |=(url=@t =(%missing (route url))))
 ?>  =(404 (access %missing req(authenticated &) ~nec ~nec))
 ~|  %exact-routes-with-query-parameters
 ?>  =(%landing (route '/gater?collection=example'))
@@ -115,11 +125,11 @@
 ?>  =('/gater' (landing-url '/gater/claim?collection=https://evil.example'))
 ?>  =('/gater' (landing-url '/gater/claim?redirect=https://evil.example'))
 ~|  %claim-endpoint-rejects-host-actions
-?>  (levy `(list @t)`~['claim' 'release' 'reassign' 'wallet-claim'] |=(action=@t (allowed-action %action (pairs:enjs:format ~[action+s+action]))))
+?>  (levy `(list @t)`~['claim' 'release' 'wallet-claim'] |=(action=@t (allowed-action %action (pairs:enjs:format ~[action+s+action]))))
 ?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress' 'source-error'] |=(action=@t !(allowed-action %action (pairs:enjs:format ~[action+s+action]))))
 ~|  %configuration-endpoint-rejects-claim-actions
 ?>  (levy `(list @t)`~['configure' 'settings' 'owners' 'nfts' 'snapshot' 'suppress' 'unsuppress' 'source-error'] |=(action=@t (allowed-action %config-action (pairs:enjs:format ~[action+s+action]))))
-?>  (levy `(list @t)`~['claim' 'release' 'reassign' 'wallet-claim'] |=(action=@t !(allowed-action %config-action (pairs:enjs:format ~[action+s+action]))))
+?>  (levy `(list @t)`~['claim' 'release' 'wallet-claim'] |=(action=@t !(allowed-action %config-action (pairs:enjs:format ~[action+s+action]))))
 ?>  !(allowed-action %action ~)
 ~|  %member-view-has-no-configuration-even-for-host
 =/  member  (claim-view st now ~nec ~nec)
@@ -130,9 +140,9 @@
 ?>  ?=(^ p.cols)
 =/  col  i.p.cols
 ?>  ?=([%o *] col)
-?>  (levy `(list @t)`~['contract' 'recognition' 'removeMembership' 'message' 'role' 'source' 'checkpoint'] |=(key=@t !(~(has by p.col) key)))
+?>  (levy `(list @t)`~['recognition' 'removeMembership' 'message' 'role' 'source'] |=(key=@t !(~(has by p.col) key)))
 ~|  %configuration-view-retains-host-data
 =/  admin  (config-view st now ~nec ~nec)
 ?>  ?=([%o *] admin)
 ?>  (levy `(list @t)`~['outbox' 'baseUrl' 'azimuthAuto' 'collections'] |=(key=@t (~(has by p.admin) key)))
-(pure:m !>([%gater-actions-tests 32 %passed]))
+(pure:m !>([%gater-actions-tests 36 %passed]))

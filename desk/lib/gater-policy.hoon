@@ -54,12 +54,34 @@
         =(`owner.cl (~(get by owners.st) who.cl))
     ==
   st
+++  claim-revision
+  ::  CAS token for just this ship/collection/NFT intent. Background imports
+  ::  elsewhere cannot invalidate it; ownership, provenance and claims do.
+  |=  [st=state who=ship key=asset]
+  ^-  @ud
+  =/  existing
+    %+  skim  ~(tap by claims.st)
+    |=  [asset=asset cl=claim]
+    &(=(collection.asset collection.key) =(who.cl who))
+  %-  shax
+  %-  jam
+  :*  who  key  existing
+      (~(get by collections.st) collection.key)
+      (~(get by owners.st) who)
+      (~(get by tokens.st) key)
+      (~(get by token-generations.st) key)
+      (~(get by claims.st) key)
+      suppressed.st
+  ==
+++  expected-revision
+  |=  [st=state who=ship key=asset expected=@ud]
+  |(=(expected revision.st) =(expected (claim-revision st who key)))
 ++  claim-token
   |=  [st=state now=@da who=ship key=asset expected=@ud]
   ^-  (each state @t)
   ?^  cl=(~(get by claims.st) key)
     ?.  =(who who.u.cl)
-      [%| 'This NFT is already linked. Ask the linked ship to transfer it, or authorize with the owner wallet.']
+      [%| 'This NFT is already linked. Ask the linked ship to release it, or authorize with the owner wallet.']
     (assign-token st now who key expected)
   (assign-token st now who key expected)
 ++  reassign
@@ -75,7 +97,7 @@
   ::  Internal commit gate. Call only after claim/reassignment authorization.
   |=  [st=state now=@da who=ship key=asset expected=@ud]
   ^-  (each state @t)
-  ?.  =(expected revision.st)  [%| 'State changed. Refresh and try again.']
+  ?.  (expected-revision st who key expected)  [%| 'State changed. Refresh and try again.']
   ?.  (~(has by collections.st) collection.key)  [%| 'Unknown collection.']
   ?.  (fresh st now collection.key)  [%| 'Ownership data is stale. Try again after synchronization.']
   ?.  (eligible st who key)  [%| 'This ship and NFT must have the same owner.']
@@ -94,7 +116,7 @@
 ++  release
   |=  [st=state who=ship key=asset expected=@ud]
   ^-  (each state @t)
-  ?.  =(expected revision.st)  [%| 'State changed. Refresh and try again.']
+  ?.  (expected-revision st who key expected)  [%| 'State changed. Refresh and try again.']
   ?~  cl=(~(get by claims.st) key)  [%& st]
   ?.  =(who who.u.cl)  [%| 'Only the associated ship can release this claim.']
   [%& st(claims (~(del by claims.st) key), revision +(revision.st))]
@@ -129,6 +151,46 @@
   %+  roll  ~(tap by collections.st)
   |=  [[id=@tas cfg=collection] yes=_|]
   |(yes &(=(group.cfg group.key) !=(~ (holdings st who.key id))))
+++  detach-collection
+  ::  Stop managing this binding, preserving actual Tlon access. Other
+  ::  collections retain their shared roles and management accounting.
+  |=  [st=state id=@tas]
+  ^-  state
+  =/  old  (~(got by collections.st) id)
+  =/  remaining  (~(del by collections.st) id)
+  =/  same-role  (~(any by remaining) |=(cfg=collection =([group.cfg role.cfg] [group.old role.old])))
+  =.  claims.st
+    (~(gas by *(map asset claim)) (skim ~(tap by claims.st) |=([key=asset cl=claim] !=(collection.key id))))
+  =.  recognized.st
+    (silt (skim ~(tap in recognized.st) |=([col=@tas who=ship] !=(col id))))
+  =.  applied.st
+    %-  ~(urn by applied.st)
+    |=  [key=seat roles=(set @tas)]
+    ?:  |(!=(group.key group.old) same-role)  roles
+    (~(del in roles) role.old)
+  =.  managed.st
+    %-  silt
+    %+  skim  ~(tap in managed.st)
+    |=  key=seat
+    ?|  !=(group.key group.old)
+        !=(~ (~(gut by applied.st) key *(set @tas)))
+        %+  lien  ~(tap by remaining)
+        |=  [col=@tas cfg=collection]
+        &(=(group.cfg group.key) =(recognition.cfg %invite) (~(has in recognized.st) [col who.key]))
+    ==
+  =.  effects.st
+    (~(gas by *(map @ud effect)) (skim ~(tap by effects.st) |=([key=@ud ef=effect] !=(group.seat.operation.ef group.old))))
+  st
+++  delete-collection
+  |=  [st=state id=@tas]
+  ^-  state
+  =.  st  (detach-collection st id)
+  =.  collections.st  (~(del by collections.st) id)
+  =.  tokens.st
+    (~(gas by *(map asset @ux)) (skim ~(tap by tokens.st) |=([key=asset owner=@ux] !=(collection.key id))))
+  =.  token-generations.st
+    (~(gas by *(map asset @ud)) (skim ~(tap by token-generations.st) |=([key=asset gen=@ud] !=(collection.key id))))
+  st(nft-at (~(del by nft-at.st) id), checkpoints (~(del by checkpoints.st) id), nft-sources (~(del by nft-sources.st) id), revision +(revision.st))
 ++  reconcile
   |=  [st=state now=@da]
   ^-  state
@@ -154,7 +216,7 @@
       (enqueue st [%revoke key removed ''])
     =/  kick=?
       (~(any by collections.st) |=(cfg=collection &(=(group.cfg group.key) kick.cfg)))
-    =?  st  &(kick =(wanted ~) (~(has in managed.st) key) |(!=(q.i.old ~) !(group-eligible st key) (~(has in suppressed.st) key)))
+    =?  st  &(kick =(wanted ~) (~(has in managed.st) key) |((~(has by applied.st) key) !(group-eligible st key) (~(has in suppressed.st) key)))
       (enqueue st [%kick key ~ ''])
     $(old t.old)
   =/  additions  ~(tap by want)
@@ -172,18 +234,28 @@
   ?~  cols  st
   =/  id  p.i.cols
   =/  cfg  q.i.cols
+  ?:  ?=(%none recognition.cfg)  $(cols t.cols)
   ?.  (fresh st now id)  $(cols t.cols)
-  =/  people  ~(tap in ~(key by owners.st))
+  ::  Build the collection's holder set once. Scanning all NFTs for each
+  ::  Azimuth point makes real-world ownership snapshots prohibitively slow.
+  =/  wallets=(set @ux)
+    %+  roll  ~(tap by tokens.st)
+    |=  [[key=asset owner=@ux] result=(set @ux)]
+    ?.  &(=(collection.key id) !=(owner 0))  result
+    (~(put in result) owner)
+  =/  people=(list ship)
+    %+  murn  ~(tap by owners.st)
+    |=  [who=ship owner=@ux]
+    ?.  &((lte who 0xffff.ffff) (~(has in wallets) owner))  ~
+    `who
   =.  st
     |-
     ?~  people  st
     =/  who  i.people
     ?:  |((~(has in suppressed.st) [group.cfg who]) (~(has in recognized.st) [id who]))
       $(people t.people)
-    ?:  =(~ (holdings st who id))  $(people t.people)
-    ?:  ?=(%none recognition.cfg)  $(people t.people)
     =/  text=@t
-      (crip "{(trip message.cfg)} {(trip base-url.st)}/gater?collection={(trip id)}")
+      (crip "{(trip message.cfg)} {(trip base-url.st)}/gater/{(trip id)}")
     =.  st
       (enqueue st [recognition.cfg [group.cfg who] ~ text])
     $(people t.people)

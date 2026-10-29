@@ -1,5 +1,5 @@
 /-  *gater
-/+  j=gater-json, policy=gater-policy, wallet=gater-wallet
+/+  j=gater-json, policy=gater-policy, wallet=gater-wallet, community=gater-community
 |%
 ++  act
   |=  [st=state now=@da who=ship host=ship jon=json]
@@ -20,10 +20,13 @@
       (claim:wallet st now who host [u.col u.token] u.revision u.expires (str:j jon 'signature'))
     (release:policy st who [u.col u.token] u.revision)
   ?.  =(who host)  [%| 'This action is only available to the host.']
+  ?:  &(?=(?(%configure %delete-collection) action) (~(any by effects.st) |=(ef=effect =(status.ef %sent))))
+    [%| 'Wait for the in-flight Tlon action to finish before editing collections.']
   =/  from-chain  =(action %snapshot)
   =?  action  from-chain  %nfts
   ?+  action  [%| 'Unknown action.']
       %configure
+    ?.  (valid-id:community (str:j jon 'id'))  [%| 'Use a collection ID of up to 64 lowercase letters, digits and hyphens; reserved route names are unavailable.']
     ?~  id=(slaw %tas (str:j jon 'id'))  [%| 'Invalid collection ID.']
     ?~  chain=(uint:j jon 'chain')  [%| 'Invalid chain.']
     ?.  |(=(u.chain 1) =(u.chain 8.453))  [%| 'Use Ethereum mainnet (1) or Base (8453).']
@@ -49,11 +52,17 @@
       |=  [[key=@tas old=collection] yes=_|]
       |(yes &(!=(key u.id) =(group.old group.cfg) !=(kick.old kick.cfg)))
     ?:  conflict  [%| 'Collections managing one group must use the same membership-loss policy.']
-    ?^  old=(~(get by collections.st) u.id)
-      ?.  =([chain contract group role]:u.old [chain contract group role]:cfg)
-        [%| 'Asset and group identity are immutable in this alpha. Add a new configuration.']
-      $(collections.st (~(del by collections.st) u.id))
+    =/  old  (~(get by collections.st) u.id)
+    ?.  ?~(old & =([chain contract]:u.old [chain contract]:cfg))
+      [%| 'The network and contract cannot change. Create a new community for a different asset.']
+    =?  st  ?~(old | !=([group role]:u.old [group role]:cfg))
+      (detach-collection:policy st u.id)
     [%& st(collections (~(put by collections.st) u.id cfg), revision +(revision.st))]
+      %delete-collection
+    ?~  id=(slaw %tas (str:j jon 'id'))  [%| 'Invalid collection ID.']
+    ?.  (~(has by collections.st) u.id)  [%| 'Unknown collection.']
+    ?.  =(`revision.st (uint:j jon 'revision'))  [%| 'State changed. Refresh before deleting.']
+    [%& (delete-collection:policy st u.id)]
       %settings
     =/  url  (str:j jon 'baseUrl')
     ?~  parsed=(de-purl:html url)  [%| 'Provide an absolute host URL.']
@@ -192,6 +201,7 @@
             ?:  &(from-chain same-epoch =(height height.u.checkpoint) |(!=(tokens.st kept.p.result) !=(token-generations.st generations.p.result)))
               [%| 'Ownership changed at an unchanged checkpoint.']
             $(checkpoints.st (~(del by checkpoints.st) col))
+          =/  changed  |(new-epoch !=(tokens.st kept.p.result) !=(token-generations.st generations.p.result))
           =.  claims.st
             %-  ~(gas by *(map asset claim))
             %+  skim  ~(tap by claims.st)
@@ -199,6 +209,6 @@
             |(!=(collection.key col) &(!new-epoch =((~(gut by token-generations.st) key 0) (~(gut by generations.p.result) key 0))))
           =?  checkpoints.st  from-chain  (~(put by checkpoints.st) col [height block-hash])
           =.  nft-sources.st  ?:(from-chain (~(put by nft-sources.st) col src) (~(del by nft-sources.st) col))
-          [%& (prune:policy st(tokens kept.p.result, token-generations generations.p.result, nft-at (~(put by nft-at.st) col observed), fixtures |(fixtures.st !from-chain), revision +(revision.st)))]
+          [%& (prune:policy st(tokens kept.p.result, token-generations generations.p.result, nft-at (~(put by nft-at.st) col observed), fixtures |(fixtures.st !from-chain), revision ?:(changed +(revision.st) revision.st)))]
     ==
 --

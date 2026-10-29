@@ -2,38 +2,80 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Gater · Host configuration</title>
+  <title>Gater · Your communities</title>
+  <link rel="icon" href="/gater/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/gater/style.css">
+  <script src="/gater/community.js" defer></script>
   <script src="/gater/config.js" defer></script>
 </head>
-<body>
+<body class="host-page">
   <main>
     <header><a href="/gater" class="brand">%gater</a><span id="identity">Host configuration</span></header>
-    <section class="intro"><p class="eyebrow">Host only</p><h1>Configure your<br>membership gates.</h1><p>Choose the collections, groups, and actions this host manages.</p></section>
+    <section class="intro compact"><p class="eyebrow">Host workspace</p><h1>Your communities.</h1><p>Give each collection a home, a claim page, and a place to talk.</p></section>
     <p id="notice" role="status" aria-live="polite"></p>
+    <p id="provision-status" role="status" aria-live="polite" hidden></p>
     <section id="admin">
-      <details open><summary>Host settings</summary>
-        <p class="muted">First-pass preview: decisions are queued for inspection. No DMs, invitations, or access changes are sent.</p>
-        <form id="settings"><label>Public host URL<input name="baseUrl" type="url" placeholder="https://your-ship.example" required></label><label>Azimuth source<select name="azimuthAuto"><option value="true">Follow this ship’s Azimuth ownership updates</option><option value="false">Use imported test ownership</option></select></label><button>Save host settings</button></form>
-        <h3>Configured collections</h3><div id="configured"></div><h3>Add or update a collection</h3>
-        <form id="configure" class="grid">
-          <label>Collection ID<input name="id" pattern="[a-z][a-z0-9-]*" placeholder="nockmilio" required></label>
-          <label>Display name<input name="name" placeholder="Nockmilio" required></label>
-          <label>Network<select name="chain"><option value="8453">Base</option><option value="1">Ethereum</option></select></label>
-          <label>Contract<input name="contract" pattern="0x[0-9a-fA-F]{40}" required></label>
-          <label>Hosted group name<input name="group" pattern="[a-z][a-z0-9-]*" required></label>
-          <label>Managed role ID<input name="role" pattern="[a-z][a-z0-9-]*" placeholder="holder" required></label>
-          <label>On recognition<select name="recognition"><option value="dm">Send a claim link by DM</option><option value="invite">Invite every eligible ship</option><option value="none">Do nothing</option></select></label>
-          <label>On loss of eligibility<select name="removeMembership"><option value="true">Remove role and membership</option><option value="false">Remove role; keep membership</option></select></label>
-          <label class="wide">DM content (claim link is appended)<textarea name="message" maxlength="2048">You qualify for our group. Claim your membership:</textarea></label>
-          <button>Save collection</button>
-        </form>
+      <section id="community-list"><div class="section-heading"><h2>Gated communities</h2><button id="refresh" type="button" class="quiet">Refresh</button></div><div id="configured" class="community-grid"></div></section>
+      <section id="editor" hidden aria-labelledby="editor-title">
+        <div class="section-heading"><div><button id="back" type="button" class="quiet">← All communities</button><h2 id="editor-title">Create a gated community</h2></div><button id="delete" type="button" class="danger" hidden>Delete collection</button></div>
+        <p id="editor-notice" role="status" aria-live="polite"></p>
+        <div class="editor-layout">
+          <form id="configure">
+            <fieldset><legend>Collection</legend><div class="grid">
+              <label>Collection ID<input name="id" pattern="[a-z][a-z0-9-]{0,63}" maxlength="64" placeholder="nockmilio" required><small>Used in your invite URL and when creating a group.</small></label>
+              <label>Display name<input name="name" maxlength="160" placeholder="Nockmilio" required></label>
+              <label>Network<select name="chain"><option value="8453">Base</option><option value="1">Ethereum</option></select></label>
+              <label>Contract address<input name="contract" pattern="0x[0-9a-fA-F]{40}" placeholder="0x…" required></label>
+            </div></fieldset>
+            <fieldset><legend>Tlon group &amp; role</legend>
+              <label>Group hosted by this ship<select name="group" required></select></label>
+              <button id="create-group" type="button" class="quiet">Create group from collection ID</button>
+              <p id="group-hint" class="muted">Creates a private group and its initial chat channel. Existing groups are never overwritten.</p>
+              <label>Membership role<select name="role" required></select></label>
+              <details><summary>Create a role</summary><div class="grid"><label>Role ID<input id="role-id" placeholder="holder" maxlength="64"></label><label>Role display name<input id="role-name" placeholder="Holder" maxlength="160"></label></div><button id="create-role" type="button" class="quiet">Create role</button><p class="muted">Creates a membership label with no administrative permissions.</p></details>
+            </fieldset>
+            <fieldset><legend>Membership flow</legend><div class="grid">
+              <label>When an eligible ship is found<select name="recognition"><option value="dm">Send a claim link by DM</option><option value="invite">Invite every eligible ship</option><option value="none">Do nothing</option></select></label>
+              <label>When eligibility is lost<select name="removeMembership"><option value="true">Remove role and membership</option><option value="false">Remove role; keep membership</option></select></label>
+              <label class="wide">DM message<textarea name="message" maxlength="2048">You qualify for our group. Claim your membership:</textarea><small>The collection's invite link is appended automatically.</small></label>
+            </div><label class="check-label"><input name="manualApproval" type="checkbox">Manually approve all actions</label><p class="muted">By default, invitations, role updates, removals and messages run automatically. Enable approval to review each action before sending.</p><label>DM after membership removal<textarea name="removalMessage" maxlength="2048">Your NFT membership link is no longer active, so access has been removed. Hold or reacquire an NFT from this collection, then link it to your ship to rejoin:</textarea><small>Sent after Tlon confirms removal. The collection name and rejoin link are included automatically. Leave empty to disable this message.</small></label></fieldset>
+            <fieldset><legend>Invite &amp; claim pages</legend>
+              <label>Invite heading<input name="title" maxlength="160" placeholder="Claim your group membership."></label>
+              <label>Invite description<textarea name="subtitle" maxlength="2048" placeholder="Tell holders what makes this community worth joining."></textarea></label>
+              <label>Claim heading<input name="claimTitle" maxlength="160" placeholder="Use the invite heading"></label>
+              <label>Claim description<textarea name="claimSubtitle" maxlength="2048" placeholder="Use the invite description"></textarea></label>
+              <div class="grid"><label>Header image URL<input name="header" type="url" placeholder="https://…"></label><label>Collection avatar URL<input name="avatar" type="url" placeholder="https://…"></label></div>
+              <p id="image-status" class="image-note" role="status"></p><p class="muted">Use direct image URLs, or X / Twitter profile photo and header links. X links are resolved through FxEmbed; direct images load from their original host.</p><label>Footer text<input name="footer" maxlength="512" placeholder="Your community. Your corner of the network."></label>
+              <label>NFT artwork URL pattern<input name="artworkTemplate" maxlength="2048" placeholder="https://…/images/{id}.png"></label><p class="muted">Optional direct image URL with {id} for the token number. Only the signed-in ship’s cards load artwork, in that browser. Leave blank to try contract metadata; some sources block browser access.</p>
+              <label>Page theme<select name="themeMode"><option value="host">Follow the host’s synced theme</option><option value="custom">Custom collection palette</option></select></label><p class="muted">The synced theme follows %settings automatically. Custom palettes belong to this collection; typography, spacing and corners can be customized in either mode.</p>
+              <div class="palette"><label>Background<input name="background" type="color" value="#f6f5ee"></label><label>Cards<input name="surface" type="color" value="#ffffff"></label><label>Text<input name="text" type="color" value="#202c23"></label><label>Secondary text<input name="muted" type="color" value="#63705f"></label><label>Accent<input name="accent" type="color" value="#27633d"></label></div>
+              <details><summary>Full palette &amp; typography</summary>
+                <div class="palette"><label>Secondary<input name="secondary" type="color" value="#7d9a7a"></label><label>Tertiary<input name="tertiary" type="color" value="#c5ccd6"></label><label>Raised surface<input name="raised" type="color" value="#e8ece6"></label><label>Error<input name="error" type="color" value="#b34839"></label><label>Selection<input name="selection" type="color" value="#c5daca"></label><label>Links<input name="link" type="color" value="#27633d"></label><label>Borders<input name="border" type="color" value="#d0d6cd"></label></div>
+                <label>Omarchy palette / appearance JSON<textarea name="palette" rows="4" maxlength="16384" placeholder='{"background":"#171717","foreground":"#cccccc","accent":"#b4a0e8"}'></textarea></label>
+                <div class="form-actions"><button id="import-palette" class="quiet" type="button">Apply palette JSON</button><button id="use-ship-theme" class="quiet" type="button">Use host theme</button></div>
+                <p class="muted">Accepts the full appearance profile, its colors object, or a Talon custom theme. Keeps the full color set and maps semantic colors into the page.</p>
+                <div class="grid"><label>Headings font<input name="fontDisplay" placeholder="Newsreader, Georgia, serif" maxlength="160"></label><label>Body font<input name="fontBody" placeholder="IBM Plex Sans, system-ui, sans-serif" maxlength="160"></label><label>Monospace font<input name="fontMono" placeholder="IBM Plex Mono, monospace" maxlength="160"></label><label>Spacing<select name="spacing"><option value="compact">Compact</option><option value="comfortable" selected>Comfortable</option><option value="roomy">Roomy</option></select></label><label>Corners<select name="rounding"><option value="square">Square</option><option value="soft" selected>Soft</option><option value="round">Round</option></select></label></div>
+                <div class="grid"><label>Headings font file URL<input name="fontDisplayURL" type="url" placeholder="https://…/heading.woff2"></label><label>Body font file URL<input name="fontBodyURL" type="url" placeholder="https://…/body.woff2"></label><label>Monospace font file URL<input name="fontMonoURL" type="url" placeholder="https://…/mono.woff2"></label></div><p class="muted">Font files are optional. Use a WOFF2 or WOFF URL served with cross-origin access enabled. Without a file, the visitor’s installed font and your fallback families are used.</p>
+              </details>
+            </fieldset>
+            <div class="form-actions"><button id="save" type="submit">Save community</button><button id="cancel" type="button" class="quiet">Cancel</button></div>
+          </form>
+          <aside><div class="preview-sticky"><div class="section-heading"><h3>Page preview</h3><select id="preview-page" aria-label="Preview page"><option value="invite">Invite</option><option value="claim">Claim</option></select></div><div id="brand-preview" class="brand-preview"><img id="preview-header" class="header-image" hidden alt=""><div class="preview-body"><img id="preview-avatar" class="avatar-image" hidden alt=""><p id="preview-name" class="eyebrow">Your community</p><h2 id="preview-title">Claim your group membership.</h2><p id="preview-subtitle">Link an NFT you own to your Urbit ID.</p><span class="preview-button">Continue with EAuth</span></div></div><p class="muted">Preview updates as you edit. Save to publish.</p><div id="share-links"></div></div></aside>
+        </div>
+      </section>
+      <details open><summary>Delivery <span id="outbox-count" class="badge">0</span></summary>
+        <p id="delivery-status" role="status"></p><p id="delivery-active" class="muted"></p><div class="card-actions"><button id="delivery-recheck" class="quiet" type="button" hidden>Recheck result</button><button id="delivery-retry" class="quiet" type="button" data-requires-audit hidden>Retry rejected action</button></div>
+        <form id="delivery-settings"><label class="check-label"><input name="enabled" type="checkbox" checked>Enable delivery</label><p class="muted">Turn off to pause new actions across all communities. Individual communities can require manual approval in their membership settings.</p><button type="submit">Save delivery settings</button></form>
+        <p class="muted">Approvals apply to the exact action shown. Invitations appear in Tlon; the recipient still accepts. Membership results are checked on the host. DM receipts confirm submission to Tlon, not that the recipient has read the message.</p>
+        <div id="outbox"></div><details><summary>Recent receipts</summary><div id="delivery-receipts"></div></details>
       </details>
-      <details><summary>Pending actions</summary><p class="muted">Preview of what the host would send or change.</p><div id="outbox"></div></details>
-      <details open><summary>Ownership sources</summary><p id="azimuth-status" class="muted"></p><div id="sources"></div></details>
+      <details><summary>Host settings</summary><form id="settings" class="grid"><label>Public host URL<select id="host-choice" aria-label="Suggested public host"><option value="">Custom URL</option></select><input name="baseUrl" type="url" required placeholder="https://your-ship.example"></label><label>Azimuth source<select name="azimuthAuto"><option value="true">Follow this ship’s ownership updates</option><option value="false">Use imported test ownership</option></select></label><button>Save host settings</button></form>
+      <p id="theme-status" class="muted"></p><p id="host-url-help" class="muted">Choose an Eyre-advertised address or enter your own public origin. The address in this browser is also offered; localhost is only reachable on this computer.</p></details><details><summary>Ownership sources</summary><p id="azimuth-status" class="muted"></p><div id="sources"></div></details>
     </section>
-    <noscript><p>Enable JavaScript to load and save host configuration.</p></noscript>
-    <footer><a href="/gater/claim">Your claims</a><a href="/gater">Public claim page</a><a href="/~/logout">Sign out</a></footer>
+    <noscript><p>Enable JavaScript to manage your communities.</p></noscript>
+    <footer><a href="/gater/claim">Your claims</a><a href="/gater">Public claim page</a></footer>
   </main>
+  <dialog id="confirm-delete"><form method="dialog"><h2>Delete this collection?</h2><p id="delete-description"></p><p>Its Gater configuration, branding, claims and unsent actions are removed. The Tlon group, roles and existing memberships are kept. Any external NFT indexer must also be stopped separately.</p><div class="form-actions"><button value="cancel" class="quiet">Keep collection</button><button value="delete" class="danger">Delete collection</button></div></form></dialog>
+<dialog id="confirm-action"><form method="dialog"><h2 id="confirm-title">Confirm change</h2><p id="confirm-description"></p><div class="form-actions"><button value="cancel" class="quiet">Cancel</button><button value="confirm" id="confirm-button">Continue</button></div></form></dialog>
 </body>
 </html>

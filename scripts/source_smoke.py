@@ -36,6 +36,9 @@ def main():
             if state()['azimuthStatus'] == 'observed': break
             time.sleep(.1)
         assert state()['azimuthStatus'] == 'observed', 'Native initial snapshot was not received'
+        # Force the observed-state reconciliation path immediately. A snapshot
+        # alone does not exercise the periodic /own/noun Gall scry.
+        action(settings)
         # The unconfigured fake ship has an empty native ownership index.
         assert not next(c for c in state()['collections'] if c['id'] == 'demo')['tokens']
         for op in ('suspend', 'revive'):

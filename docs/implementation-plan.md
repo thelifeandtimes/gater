@@ -20,11 +20,12 @@
 - [x] Supported external indexer with atomic cursor/state/snapshot persistence, restart continuation, range-limit reduction, bounded retries/backoff, explicit source failure and reviewed rebuilds after divergence.
 - [x] ERC-721Enumerable bootstrap or reviewed deployment-era Transfer/ERC-2309 bootstrap, checked against totalSupply and ownerOf at a finalized checkpoint.
 - [x] State v0→v1 migration, source-health UI, reducer tests, provider simulations and local integration tests.
-- [ ] Verify the actual Nockmilio contract, deployment/mint coverage and live Ethereum/Base provider behavior. Deferred until the user supplies an RPC endpoint; the example is not a verified bootstrap configuration.
-- [ ] Establish Azimuth completeness and an atomic processed chain checkpoint independently of subscription/poll time. The upstream event feed lacks that certificate.
+- [x] Verify Ethereum/Base endpoint access, Nockmilio's deployment block, minimal proxy and mint-event source; supply a reviewed bootstrap configuration.
+- [x] Complete Nockmilio's full live ownership replay and restart verification. Request pacing, Retry-After handling and resumable log/owner work address provider throughput limits. See [source checks](nockmilio-verification.md).
+- [x] Establish canonical finalized Azimuth history coverage and an atomic processed checkpoint from a pinned Urbit bootstrap, including native L2 replay. The persistent audit worker verifies RPC logs, canonical blocks and rollup inputs; this is bootstrap/RPC trust, not a proof from genesis.
 - [ ] Test server-side EAuth expiry, callback replay and deployment reverse-proxy behavior.
 
-Exit: the remaining real-source and deployed authentication checks above pass. Local tests establish the implemented behavior, not production source completeness. Native Iris ingestion is an optional later replacement for the supported external worker.
+The live Nockmilio index and Azimuth audit now pass and resume from persisted checkpoints. The remaining authentication checks concern session expiry and public reverse-proxy deployment. Native Iris ingestion is an optional later replacement for the supported external worker.
 
 ## Strict reassignment update (2026-10-26)
 
@@ -34,16 +35,19 @@ Exit: the remaining real-source and deployed authentication checks above pass. L
 - [x] Claim UI controls, malformed-signature/replay tests and two-ship HTTP tests with an independent Ethereum signing library.
 - [ ] ERC-1271 contract-wallet adapter and actual browser/hardware-wallet compatibility tests.
 
-## Then: Tlon delivery and observed reconciliation
+## Tlon delivery and observed reconciliation
 
-1. Pin installed `%groups`/`%chat` interfaces; verify the versioned marks and payloads from source in [integrations](integrations.md).
-2. Implement the DM adapter with configurable content and the claim link, one recipient per eligible ship, cooldown/deduplication, cancellation of obsolete unsent work, and ambiguous-delivery handling.
-3. Implement broad invitation, admission after claim, role addition/removal, pending-invite cancellation and membership removal.
-4. Subscribe to group state. Populate managed/applied state only for Gater-owned effects, respect bans/protected members/manual roles, and recheck eligibility just before delivery.
-5. Serialize a replacement's removals before its grants. Failed removals must block conflicting grants. Persist retries, receipts and generations; a poke ack does not prove a membership change.
-6. Add a live toggle only after those checks pass. Keep preview as the default operational mode.
+A shared adapter compiles against the pinned interfaces and has fake-ship integration coverage for DMs, claim invitations, accepted roles, eligibility loss, voluntary release, broad invitations, pending cancellation, manual-role preservation and Gall ledger reload. Production authorization requires a fresh ownership audit and NFT sources, explicit targets, and exact operation approval or automatic mode. Its persisted ledger separates acknowledgement from observed completion and records which roles it added. The dedicated comet is deployed with delivery paused; its first real invitation is a manual pilot step.
 
-Exit: two-ship Tlon tests prove invite acceptance, role assignment, authorized reassignment, loss, restarts, retries and protected-member behavior without duplicate messages or leaked roles.
+
+1. Implemented: pinned `%groups`/`%chat` interfaces and versioned marks/payloads, documented in [integrations](integrations.md).
+2. Implemented: configurable DM content and collection claim link, recipient deduplication, obsolete-work cancellation and uncertain-delivery handling without blind DM retries.
+3. Implemented: broad invitation, admission after claim, role addition/removal, pending cancellation and managed membership removal.
+4. Implemented: observed group state, Gater-owned effect tracking, protected members/manual roles and current eligibility checks.
+5. Implemented: serialized removals before grants, persisted retries/receipts and observed completion. Broader delayed-message and cold-pier fault injection remains valuable.
+6. Implemented: paused/manual/automatic controls, explicit targets, exact approvals and rejected/uncertain result recovery.
+
+Two-ship Tlon tests pass invite acceptance, roles, voluntary release, loss, ledger reload and manual-access preservation. Unit tests cover authorization and retry gates. See [production delivery](production-delivery.md) for the first real invitation walkthrough and remaining operational limits.
 
 ## Generalize and pilot
 

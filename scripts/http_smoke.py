@@ -47,7 +47,16 @@ def request(client, path, *args, **kwargs):
 def member_view(data):
     assert not {'admin', 'outbox', 'baseUrl', 'azimuthAuto', 'fixtures', 'azimuthStatus'} & data.keys()
     for row in data['collections']:
-        assert not {'contract', 'recognition', 'removeMembership', 'message', 'role', 'source', 'checkpoint'} & row.keys()
+        assert not {'recognition', 'removeMembership', 'message', 'role', 'source'} & row.keys()
+
+
+def assert_csp(headers, *, eauth=False, artwork=False):
+    directives = dict(part.strip().split(' ', 1) for part in headers['Content-Security-Policy'].split(';'))
+    assert directives == {
+        'connect-src': "'self' https:" if artwork else "'self' https://api.fxtwitter.com", 'default-src': "'self'", 'script-src': "'self'", 'style-src': "'self'",
+        'font-src': "'self' http: https:", 'img-src': "'self' http: https:", 'frame-ancestors': "'none'", 'base-uri': "'none'",
+        'form-action': "'self' http: https:" if eauth else "'self'",
+    }
 
 
 for path in ('/gater', '/gater/', '/gater?collection=demo'):
@@ -56,8 +65,11 @@ for path in ('/gater', '/gater/', '/gater?collection=demo'):
     assert 'id="login"' in page and 'value="/gater/claim"' in page
     assert 'name="eauth"' in page and 'id="configure"' not in page
     assert 'id="collections"' not in page and 'id="settings"' not in page
-assert request(anonymous, '/gater/landing.js')[0] == 200
-assert request(anonymous, '/gater/style.css')[0] == 200
+    assert_csp(headers, eauth=True)
+for path in ('/gater/landing.js', '/gater/style.css'):
+    status, _, headers = raw_request(anonymous, path)
+    assert status == 200
+    assert_csp(headers)
 status, _, headers = raw_request(anonymous, '/gater/claim?collection=demo')
 assert status == 303 and headers.get('Location') == '/gater?collection=demo'
 assert request(anonymous, '/gater/claim.js')[0] == 401
@@ -84,10 +96,12 @@ with host.open(Request(url + '/~/login', urlencode({'password': code, 'redirect'
 del code, numbers, reply
 for path in aliases:
     assert request(host, path)[0] == 404
-status, page = request(host, '/gater/claim')
+status, page, headers = raw_request(host, '/gater/claim')
+assert_csp(headers, artwork=True)
 assert status == 200 and 'id="collections"' in page
 assert 'id="configure"' not in page and 'id="settings"' not in page and 'id="outbox"' not in page
-status, page = request(host, '/gater/config')
+status, page, headers = raw_request(host, '/gater/config')
+assert_csp(headers)
 assert status == 200 and 'id="settings"' in page and 'id="configure"' in page
 assert 'id="collections"' not in page
 assert request(host, '/gater/claim.js')[0] == 200

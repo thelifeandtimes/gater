@@ -3,6 +3,8 @@
 .env.*
 !.env.example
 *.local.json
+*.local.json.work
+*.local.json.lock
 *.pem
 *.key
 

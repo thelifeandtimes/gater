@@ -4,7 +4,7 @@
 ++  message
   |=  [st=state now=@da who=ship host=ship key=asset expected=@ud expires=@ud]
   ^-  (each @t @t)
-  ?.  =(expected revision.st)  [%| 'State changed. Refresh and request a new signature.']
+  ?.  (expected-revision:policy st who key expected)  [%| 'State changed. Refresh and request a new signature.']
   ?.  (~(has by collections.st) collection.key)  [%| 'Unknown collection.']
   ?.  (lth token.key (bex 256))  [%| 'Invalid token ID.']
   ?.  (fresh:policy st now collection.key)  [%| 'Ownership data is stale.']

@@ -1,0 +1,8 @@
+{
+  "collection": "nockmilio",
+  "chain": 8453,
+  "contract": "0x7465e492a183f16c0805e57262898c7bec11808a",
+  "discovery": "events-supply",
+  "deploymentBlock": 52544634,
+  "reviewedSource": "https://basescan.org/address/0x7465E492a183F16C0805e57262898c7bec11808A#code — ArchetypeErc721a minimal proxy to 0x71210FDF8a6b7cE2deb838332f46724b8aD93fc3. Initializer does not mint; mintTo, batchMintTo and burnToMint use ERC721A _safeMint, which emits a Transfer for every token. Inherited transfer/burn paths emit Transfer; totalSupply counts extant tokens. Reviewed 2026-10-26; see docs/nockmilio-verification.md for chain checks and limits."
+}

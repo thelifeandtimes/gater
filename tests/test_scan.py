@@ -1,10 +1,16 @@
 import copy
+from http.client import InvalidURL
+import io
+import json
 import sys
+import traceback
 from pathlib import Path
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from scan import scan, apply_logs, TRANSFER, ZERO
+from scan import scan, apply_logs, Rpc, RpcError, TRANSFER, ZERO
 
 CONTRACT = '0x' + 'a' * 40
 ALICE = '0x' + '1' * 40
@@ -53,6 +59,58 @@ class Provider:
 
 class ScanTests(unittest.TestCase):
     def scan(self, provider): return scan(provider, 8453, CONTRACT, 0, window=2, now=1000)
+
+    def test_malformed_endpoint_rejected_without_exposing_credentials(self):
+        for url in ('https://provider.example/v3/\rprivate-key',
+                    'https://provider.example/v3/\tprivate-key',
+                    'https://provider.example:private-key/v3/key',
+                    'https://[private-key/v3/key'):
+            with self.subTest(url_kind=url[:8]), patch('scan.urlopen') as request:
+                try:
+                    Rpc(url)('eth_chainId', [])
+                except ValueError:
+                    self.assertNotIn('private-key', traceback.format_exc())
+                else:
+                    self.fail('Malformed endpoint accepted')
+                request.assert_not_called()
+
+    def test_http_client_errors_hide_url_and_exception_chain(self):
+        rpc = Rpc('https://provider.example/v3/private-key')
+        for error in (InvalidURL('malformed private-key'), ValueError('invalid private-key')):
+            with patch('scan.urlopen', side_effect=error) as request:
+                try:
+                    rpc('eth_chainId', [])
+                except RpcError:
+                    self.assertNotIn('private-key', traceback.format_exc())
+                else:
+                    self.fail('RPC error expected')
+                self.assertEqual(request.call_count, 1)
+
+    def test_rpc_paces_attempts(self):
+        clock = [10.0]; sleeps = []
+        def sleep(seconds):
+            sleeps.append(seconds); clock[0] += seconds
+        rpc = Rpc('https://provider.example/key', min_interval=0.6, clock=lambda: clock[0], sleep=sleep)
+        with patch.object(rpc, 'request', return_value='0x1'):
+            for _ in range(3): rpc('eth_chainId', [])
+        self.assertEqual(len(sleeps), 2)
+        for delay in sleeps: self.assertAlmostEqual(delay, 0.6)
+
+    def test_retry_after_is_honored_and_bounded(self):
+        for value, expected in [('7',7), ('9000',60), ('not-a-date',1)]:
+            waits=[]; rpc=Rpc('https://provider.example/key',sleep=waits.append)
+            response=io.BytesIO(json.dumps({'jsonrpc':'2.0','id':2,'result':'0x1'}).encode())
+            with patch('scan.urlopen', side_effect=[HTTPError(rpc.url,429,'secret',{'Retry-After':value},None),response]):
+                self.assertEqual(rpc('eth_chainId',[]),'0x1')
+            self.assertEqual(waits,[expected])
+
+    def test_json_rpc_throughput_limit_retries_without_becoming_range_limit(self):
+        waits=[]; rpc=Rpc('https://provider.example/key',sleep=waits.append)
+        responses=[{'error':{'code':-32005,'message':'throughput rate limit with private-key'}},
+                   {'jsonrpc':'2.0','id':2,'result':'0x1'}]
+        with patch('scan.urlopen',side_effect=[io.BytesIO(json.dumps(r).encode()) for r in responses]):
+            self.assertEqual(rpc('eth_chainId',[]),'0x1')
+        self.assertEqual(waits,[1])
 
     def test_finalized_pagination_and_owner_checks(self):
         rpc = Provider()

@@ -3,14 +3,17 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Gater · Claim membership</title>
+  <link rel="icon" href="/gater/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/gater/style.css">
+  <script src="/gater/community.js" defer></script>
   <script src="/gater/landing.js" defer></script>
 </head>
 <body>
   <main>
     <header><a href="/gater" class="brand">%gater</a><span id="identity">Membership, on your ship.</span></header>
-    <section class="intro"><p class="eyebrow">A place for your people</p><h1>Claim your<br>group membership.</h1><p>Link an NFT you own to your Urbit ID. Sign in to see your eligible collections and choose an association.</p></section>
-    <p class="muted">Preview: claims are saved, but group access is not changed yet.</p>
+    <img id="header-image" class="header-image" hidden alt="" referrerpolicy="no-referrer"><section class="intro"><img id="avatar-image" class="avatar-image" hidden alt="" referrerpolicy="no-referrer"><p id="community-name" class="eyebrow">A place for your people</p><h1 id="community-title">Claim your<br>group membership.</h1><p id="community-subtitle">Link an NFT you own to your Urbit ID. Sign in to see your eligible collections and choose an association.</p></section>
+    <p class="muted">Group access follows this community’s membership and delivery settings.</p>
+    <p id="notice" role="status" aria-live="polite"></p>
     <section id="login">
       <h2>Sign in with your ship</h2>
       <form action="/~/login" method="post">
@@ -19,9 +22,8 @@
         <button type="submit">Continue with EAuth</button>
       </form>
       <p class="muted">You'll approve the sign-in on your own ship, then choose an NFT on the next page. You don't need to be a group member yet.</p>
-      <a id="continue" href="/gater/claim">Already signed in? Continue to your claims.</a>
     </section>
-    <footer><span>Your NFT stays in your wallet.</span><a href="/~/login?redirect=/gater/config">Host configuration</a></footer>
+    <footer><span id="community-footer"></span><a href="/~/login?redirect=/gater/config">Host configuration</a></footer>
   </main>
 </body>
 </html>

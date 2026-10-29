@@ -1,0 +1,7 @@
+{
+  "chain": 1,
+  "height": 25421988,
+  "hash": "0x85536022c48f615126d07e8fc4ed7ea2d5d5ec8da74219a21580ffbfeab51e4b",
+  "digest": "0xe212a820170af2969ae4cd803ebe82280a973fd86d27871596d6e8117dbe146e",
+  "trust": "Pinned bootstrap snapshot from the dedicated comet's installed Urbit distribution. Historical state before this anchor inherits Urbit's bootstrap trust; the suffix is independently compared with Ethereum RPC, including L2 transaction input."
+}

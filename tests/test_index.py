@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
-from index import update, run_once, replay, CONSECUTIVE, atomic_write, main
+from index import update, run_once, replay, CONSECUTIVE, atomic_write, main, import_payload
 from scan import Rpc, RpcError, TRANSFER, ZERO
 
 CONTRACT, ALICE, BOB = ('0x' + c * 40 for c in 'a12')
@@ -65,6 +65,37 @@ class Provider:
 
 
 class IndexTests(unittest.TestCase):
+    def test_import_binds_explicit_comet_and_keeps_default_fake_only(self):
+        payload = {'action': 'source-error', 'collection': 'demo'}
+        with patch('conn.evaluate_target') as run:
+            import_payload('/tmp/comet', payload, live_comet='~sampel-palnet')
+            self.assertEqual(run.call_args.kwargs, {'live_comet': '~sampel-palnet', 'live_ship': None})
+            self.assertIn('%gater', run.call_args.args[1])
+            import_payload('/tmp/fake', payload)
+            self.assertEqual(run.call_args.kwargs, {'live_comet': None, 'live_ship': None})
+
+    def test_live_comet_option_requires_a_pier_before_any_rpc(self):
+        argv = ['index.py', '--config', 'missing.json', '--state', 'missing-state.json',
+                '--live-comet', '~sampel-palnet']
+        with patch.object(sys, 'argv', argv), patch('index.Rpc') as rpc, \
+             patch('sys.stderr', new_callable=io.StringIO):
+            with self.assertRaises(SystemExit) as error: main()
+        self.assertEqual(error.exception.code, 2)
+        rpc.assert_not_called()
+
+    def test_named_ship_is_forwarded_to_snapshot_and_failure_imports(self):
+        for action, target in [('snapshot', 'host_import.import_snapshot'), ('source-error', 'conn.evaluate_target')]:
+            with self.subTest(action=action), patch(target) as run:
+                import_payload('/tmp/moon', {'action': action, 'collection': 'demo'}, live_ship='~dister-dozzod-sarlev')
+                self.assertEqual(run.call_args.kwargs, {'live_comet': None, 'live_ship': '~dister-dozzod-sarlev'})
+
+    def test_named_ship_requires_a_pier_before_any_rpc(self):
+        argv = ['index.py', '--config', 'missing.json', '--state', 'missing-state.json', '--live-ship', '~dister-dozzod-sarlev']
+        with patch.object(sys, 'argv', argv), patch('index.Rpc') as rpc, patch('sys.stderr', new_callable=io.StringIO):
+            with self.assertRaises(SystemExit) as error: main()
+        self.assertEqual(error.exception.code, 2)
+        rpc.assert_not_called()
+
     def read(self, rpc, previous=None, config=CONFIG, **kw):
         return update(rpc, config, previous, now=1000, **kw)
 
@@ -81,6 +112,116 @@ class IndexTests(unittest.TestCase):
         self.assertEqual([(p['fromBlock'], p['toBlock']) for p in ranges], [('0x6', '0x8')])
         self.assertEqual(result['epoch'], first['epoch'])
         self.assertEqual(result['tokens'], first['tokens'])
+
+    def test_incremental_checks_changed_owners_and_periodic_full_audit(self):
+        rpc = Provider(); first = self.read(rpc); rpc.calls.clear(); rpc.height = 8
+        second = self.read(rpc, first)
+        owners = lambda: [p for m,p in rpc.calls if m == 'eth_call' and p[0]['data'].startswith('0x6352211e')]
+        self.assertEqual(owners(), [])
+        self.assertEqual(second['lastFullAudit'], first['lastFullAudit'])
+        rpc.calls.clear(); self.read(rpc, second, audit_interval=0)
+        self.assertEqual(len(owners()), 1)
+        rpc.height = 9; rpc.logs.append(event(9, before=ALICE, after=BOB)); rpc.owners['7'] = BOB
+        rpc.calls.clear(); third = self.read(rpc, second)
+        self.assertEqual(len(owners()), 1)
+        self.assertEqual(third['tokens']['7']['owner'], BOB)
+
+    def test_legacy_index_receives_full_audit(self):
+        rpc = Provider(); first = self.read(rpc); first.pop('lastFullAudit'); rpc.calls.clear()
+        self.read(rpc, first)
+        self.assertEqual(sum(m == 'eth_call' and p[0]['data'].startswith('0x6352211e') for m,p in rpc.calls), 1)
+
+    def test_interrupted_bootstrap_resumes_without_publishing_partial_holdings(self):
+        rpc = Provider()
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'state.json'; work = path.with_suffix('.json.work')
+            def fail(method, params):
+                if method == 'eth_getLogs' and int(params[0]['fromBlock'],16) > 2:
+                    raise RpcError('offline', retryable=True)
+                return rpc(method, params)
+            with self.assertRaises(RpcError): run_once(fail, CONFIG, path, now=1000, window=2)
+            self.assertNotIn('snapshot', json.loads(path.read_text()))
+            partial = json.loads(work.read_text())
+            self.assertEqual(partial['nextBlock'], 3)
+            rpc.calls.clear()
+            result = run_once(rpc, CONFIG, path, now=1001, window=2)
+            self.assertEqual(result['epoch'], partial['epoch'])
+            self.assertEqual([p[0]['fromBlock'] for m,p in rpc.calls if m == 'eth_getLogs'], ['0x3','0x5'])
+            self.assertFalse(work.exists())
+
+    def test_owner_verification_resumes_at_saved_batch(self):
+        rpc = Provider(); rpc.logs = [event(1,t) for t in range(60)]
+        for i,row in enumerate(rpc.logs): row['logIndex'] = hex(i)
+        rpc.owners = {str(t): ALICE for t in range(60)}
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'state.json'
+            def fail(method, params):
+                if method == 'eth_call' and params[0]['data'] == '0x6352211e'+f'{30:064x}':
+                    raise RpcError('offline', retryable=True)
+                return rpc(method, params)
+            with self.assertRaises(RpcError): run_once(fail, CONFIG, path, now=1000)
+            self.assertEqual(json.loads(path.with_suffix('.json.work').read_text())['verified'], 25)
+            rpc.calls.clear(); result = run_once(rpc, CONFIG, path, now=1001)
+            self.assertEqual(len(result['tokens']), 60)
+            self.assertFalse(any(m == 'eth_getLogs' for m,p in rpc.calls))
+            self.assertEqual(sum(m == 'eth_call' and p[0]['data'].startswith('0x6352211e') for m,p in rpc.calls), 35)
+
+    def test_resume_rejects_changed_work_checkpoint(self):
+        rpc = Provider()
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'state.json'
+            def fail(method, params):
+                if method == 'eth_getLogs': raise RpcError('offline')
+                return rpc(method, params)
+            with self.assertRaises(RpcError): run_once(fail, CONFIG, path, now=1000)
+            rpc.hash_override[5] = word(555)
+            with self.assertRaisesRegex(ValueError, 'Work checkpoint divergence'):
+                run_once(rpc, CONFIG, path, now=1001)
+            self.assertNotIn('snapshot', json.loads(path.read_text()))
+
+    def test_failed_rebuild_resumes_new_epoch_without_old_seed(self):
+        rpc = Provider()
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d)/'state.json'; first = run_once(rpc, CONFIG, path, now=1000)
+            def fail(method, params):
+                if method == 'eth_getLogs': raise RpcError('offline')
+                return rpc(method, params)
+            with self.assertRaises(RpcError): run_once(fail, CONFIG, path, now=1000, rebuild=True)
+            partial = json.loads(path.with_suffix('.json.work').read_text())
+            self.assertNotEqual(partial['epoch'], first['epoch'])
+            result = run_once(rpc, CONFIG, path, now=1001)
+            self.assertEqual(result['epoch'], partial['epoch'])
+
+    def test_aged_work_keeps_history_but_revalidates_owners_at_new_finality(self):
+        rpc = Provider()
+        rpc.owners = {str(n): ALICE for n in range(60)}
+        rpc.logs = [event(1, token=n, index=n) for n in range(60)]
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / 'state.json'
+            def interrupted(method, params):
+                if method == 'eth_call' and params[0]['data'] == '0x6352211e' + f'{26:064x}':
+                    raise RpcError('interrupted')
+                return rpc(method, params)
+            with self.assertRaises(RpcError): run_once(interrupted, CONFIG, path, now=1000)
+            partial = json.loads(path.with_suffix('.json.work').read_text())
+            self.assertEqual(partial['verified'], 25)
+            rpc.height = 10
+            rpc.logs.append(event(6, token=0, before=ALICE, after=BOB))
+            rpc.owners['0'] = BOB
+            rpc.calls.clear()
+            def fresh(method, params):
+                value = rpc(method, params)
+                if method == 'eth_getBlockByNumber' and int(value['number'], 16) > 5:
+                    value['timestamp'] = hex(5000)
+                return value
+            result = run_once(fresh, CONFIG, path, now=5001)
+            self.assertEqual(result['epoch'], partial['epoch'])
+            self.assertEqual(result['tokens']['0']['owner'], BOB)
+            logs = [p[0] for m, p in rpc.calls if m == 'eth_getLogs']
+            self.assertEqual(logs[0]['fromBlock'], '0x6')
+            owners = [p for m, p in rpc.calls if m == 'eth_call' and p[0]['data'].startswith('0x6352211e')]
+            self.assertEqual(len(owners), 60)
+            self.assertTrue(all(p[1] == '0xa' for p in owners))
 
     def test_transfer_away_and_back_changes_generation(self):
         rpc = Provider(); first = self.read(rpc); rpc.height = 8

@@ -1,0 +1,17 @@
+[Unit]
+Description=Gater dedicated livenet preview comet
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=%h/repos/gater
+ExecStart=%h/.local/bin/urbit %h/repos/gater/piers/gater-comet -b 127.0.0.1 --http-port 8192 -p 31339 --no-dock -t
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=120
+KillMode=mixed
+UMask=0077
+
+[Install]
+WantedBy=default.target

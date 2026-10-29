@@ -1,33 +1,46 @@
 #!/usr/bin/env python3
-"""Load repo files into an explicitly selected development pier via Clay.
+"""Load repo files into a fake pier or an explicitly named live ship via Clay.
 
 Uses Clay patches, so imports do not depend on filesystem watcher timing.
 The first invocation needs --init to create a new desk. Stop the development
-agent before loading schema changes; these scripts are for test piers.
+agent before loading schema changes. Live ships require --live-ship ~identity.
+The legacy --live-comet option additionally restricts the target to comet rank.
 """
 import argparse
 from pathlib import Path
 import time
 import re
-from conn import evaluate
+from conn import evaluate_target
 
 parser = argparse.ArgumentParser()
 parser.add_argument('pier', type=Path)
 parser.add_argument('--init', action='store_true')
-parser.add_argument('--desk', default='gater', help='Development desk name (default: gater)')
+parser.add_argument('--desk', default='gater', help='Desk name (default: gater)')
+target = parser.add_mutually_exclusive_group()
+target.add_argument('--live-ship', help='Opt in to this exact livenet ship identity; defaults to fake-only')
+target.add_argument('--live-comet', help='Opt in to this exact livenet comet identity; planets and other ships are refused')
+parser.add_argument('--files', nargs='+', help='Import only these desk-relative files, then compile the complete agent')
 args = parser.parse_args()
 if not re.fullmatch('[a-z][a-z0-9-]*', args.desk):
     parser.error('Invalid desk name')
+root = Path(__file__).resolve().parents[1] / 'desk'
+selected = list(root.rglob('*'))
+if args.files:
+    if args.init:
+        parser.error('--files cannot be combined with --init')
+    selected = [(root / name).resolve() for name in args.files]
+    if any(not file.is_relative_to(root) or not file.is_file() for file in selected):
+        parser.error('Every selected file must exist inside desk/')
 
 
 def load_source(source):
     try:
-        return evaluate(args.pier, source.replace('%gater', '%' + args.desk))
+        return evaluate_target(args.pier, source.replace('%gater', '%' + args.desk), live_comet=args.live_comet, live_ship=args.live_ship)
     except RuntimeError as error:
         if 'desk-already-exists-omit-init' in str(error):
             raise SystemExit('Desk already exists. Omit --init; saved state was not changed.') from None
         if 'desk-not-found-use-init' in str(error):
-            raise SystemExit('Desk not found. Use --init to create it on this test pier.') from None
+            raise SystemExit('Desk not found. Use --init to create it on the selected pier.') from None
         raise
 
 
@@ -53,7 +66,6 @@ print(load_source('''=/  m  (strand ,vase)
 ;<  ~  bind:m  (poke [our.b %hood] %kiln-suspend !>(%gater))
 (pure:m !>(%suspended))'''))
 time.sleep(1)
-root = Path(__file__).resolve().parents[1] / 'desk'
 changes = []
 def import_order(file):
     relative = file.relative_to(root)
@@ -62,7 +74,7 @@ def import_order(file):
     return priority, str(relative)
 
 
-for file in sorted(root.rglob('*'), key=import_order):
+for file in sorted(selected, key=import_order):
     if not file.is_file():
         continue
     path = '/' + str(file.relative_to(root)).replace('.', '/')
@@ -90,4 +102,4 @@ print(load_source('''=/  m  (strand ,vase)
 ;<  b=bowl:spider  bind:m  get-bowl
 ;<  built=vase  bind:m  (build-file-hard [our.b %gater da+now.b] /app/gater/hoon)
 (pure:m !>(%compiled))'''))
-print(f'Compile complete. Use |install our %{args.desk} (first install) or |revive %{args.desk} in the test ship.')
+print(f'Compile complete. Use |install our %{args.desk} (first install) or |revive %{args.desk} in the selected ship.')

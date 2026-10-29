@@ -3,19 +3,22 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Gater · Your claims</title>
+  <link rel="icon" href="/gater/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/gater/style.css">
+  <script src="/gater/community.js" defer></script>
+  <script src="/gater/artwork.js" defer></script>
   <script src="/gater/claim.js" defer></script>
 </head>
 <body>
   <main>
-    <header><a href="/gater" class="brand">%gater</a><span id="identity">Loading your ship…</span></header>
-    <section class="intro"><p class="eyebrow">Your membership</p><h1>Choose your<br>association.</h1><p>Claim an eligible NFT for this ship. An occupied claim can move only with approval from the linked ship or a signature from the current NFT owner wallet.</p></section>
-    <p class="muted">Preview: claims are saved, but group access is not changed yet.</p>
+    <header><a href="/gater" class="brand">%gater</a><div class="identity-menu"><button id="identity" class="quiet" aria-expanded="false" aria-controls="identity-options">Loading your ship…</button><div id="identity-options" class="identity-options"><button id="logout" class="quiet" type="button">Sign out of this session</button></div></div></header>
+    <img id="header-image" class="header-image" hidden alt="" referrerpolicy="no-referrer"><section class="intro"><img id="avatar-image" class="avatar-image" hidden alt="" referrerpolicy="no-referrer"><p id="community-name" class="eyebrow">Your membership</p><h1 id="community-title">Choose your<br>association.</h1><p id="community-subtitle">Claim an eligible NFT for this ship. Release an existing association before choosing another ship, or authorize it with the current NFT owner wallet.</p></section>
+    <p class="muted">Group access follows this community’s membership and delivery settings.</p>
     <p id="notice" role="status" aria-live="polite"></p>
     <section id="membership"><div class="section-heading"><h2>Your collections</h2><button id="refresh" class="quiet">Refresh</button></div><div id="collections"></div></section>
     <section id="wallet-authorization" class="collection" hidden></section>
     <noscript><p>Enable JavaScript to load your eligible NFTs and manage claims.</p></noscript>
-    <footer><span>Your NFT stays in your wallet.</span><a id="host-config" href="/gater/config" hidden>Host configuration</a><a href="/~/logout">Sign out</a></footer>
+    <footer><span id="community-footer"></span><a id="host-config" href="/gater/config" hidden>Host configuration</a></footer>
   </main>
 </body>
 </html>
